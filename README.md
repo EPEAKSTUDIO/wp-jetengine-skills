@@ -1,22 +1,45 @@
 # jetengine-skills
 
-A small, growing collection of [Claude Code Skills](https://docs.claude.com/en/docs/claude-code/skills) for working
-with the [JetEngine](https://jetengine.crocoblock.com/) WordPress plugin — writing PHP snippets, hooking into
-JetEngine forms, querying Custom Content Types (CCTs), resolving relations, and similar day-to-day tasks.
+A growing collection of [Claude Code Skills](https://docs.claude.com/en/docs/claude-code/skills) for working with
+the Crocoblock JetEngine ecosystem — [JetEngine](https://jetengine.crocoblock.com/) (CCTs, relations, listings),
+[JetFormBuilder](https://jetformbuilder.com/) (forms, hooks, custom actions), and
+[JetSmartFilters](https://jetsmartfilters.com/) (filter → query internals) — for the day-to-day tasks of writing PHP
+snippets, hooking into forms, querying data, and resolving relations.
+
+Repo layout is inspired by [WordPress/agent-skills](https://github.com/WordPress/agent-skills).
 
 ## Why this exists
 
 We couldn't find any existing skills geared toward JetEngine development, so we started writing our own as we ran
 into real problems (custom REST endpoints, CCT relations, form hooks, etc.). Each skill captures things we actually
-verified against a running JetEngine site rather than pure guesswork from the docs.
+verified against plugin source and/or a running JetEngine site rather than pure guesswork from the docs. See
+[`docs/principles.md`](docs/principles.md) and [`docs/authoring-guide.md`](docs/authoring-guide.md) for how skills
+here get written and verified.
 
 This is **very much a work in progress**. Coverage is uneven and there are plenty of gaps. Contributions, fixes, and
 new skills are welcome — feel free to open a PR.
 
 ## What's here
 
+- [`jetengine-router`](.claude/skills/jetengine-router/SKILL.md) — start here: classifies a task and points to the
+  right domain skill below.
 - [`jetengine-cct-internals`](.claude/skills/jetengine-cct-internals/SKILL.md) — reading Custom Content Type data
   directly from the database and using the `Jet_Engine\Relations\Manager` API to resolve relations between CCTs.
+- [`jetengine-relations`](.claude/skills/jetengine-relations/SKILL.md) — relation/object types, where relation
+  config is actually stored, bulk-fetching without N+1 queries, the "Connect Relation Items" JetFormBuilder action,
+  and the public Relations REST API.
+- [`jetformbuilder-hooks`](.claude/skills/jetformbuilder-hooks/SKILL.md) — the submission lifecycle (hook names,
+  firing order, arg counts) and the "Call Hook" action for running custom PHP without a full custom action class.
+- [`jetformbuilder-actions`](.claude/skills/jetformbuilder-actions/SKILL.md) — writing a fully custom JetFormBuilder
+  action class: base class, registration, reading field values, success/failure signaling.
+- [`jetsmartfilters-query`](.claude/skills/jetsmartfilters-query/SKILL.md) — how JetSmartFilters turns a filter
+  selection into a tax_query/meta_query, the AJAX filtering endpoint, and registering custom filter types/providers.
+- [`jetengine-listings-macros`](.claude/skills/jetengine-listings-macros/SKILL.md) — `%macro%` token syntax and
+  parsing, registering a custom macro, and why a macro prints literally instead of resolving.
+
+Every skill above also has a `TEST-REGIMEN.md` next to its `SKILL.md` — a runnable validation checklist for a future
+session with sandbox (WP snippet read/write + log-viewing endpoint) access to confirm the claims against real
+runtime behavior, not just source reading. See [`docs/test-regimen-guide.md`](docs/test-regimen-guide.md).
 
 More to come.
 

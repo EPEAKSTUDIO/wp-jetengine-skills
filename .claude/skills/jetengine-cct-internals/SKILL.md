@@ -1,6 +1,6 @@
 ---
 name: jetengine-cct-internals
-description: Use when writing PHP that reads JetEngine Custom Content Type (CCT) data directly from the database or via the Relations API on the BadgeIt/app.badgeit.io WordPress install (or any JetEngine site) — e.g. building a custom REST endpoint that joins multiple CCTs, resolving a relation between two CCTs, or debugging why a "FK" field on a CCT record is empty. Captures real, verified behavior of JetEngine's CCT tables and `Jet_Engine\Relations\Manager` API, learned by building and testing the `/badgeit/v1/get-data-for-print` endpoint against production data.
+description: Use when writing PHP that reads JetEngine Custom Content Type (CCT) data directly from the database or via the Relations API on any JetEngine site — e.g. building a custom REST endpoint that joins multiple CCTs, resolving a relation between two CCTs, or debugging why a "FK" field on a CCT record is empty. Captures real, verified behavior of JetEngine's CCT tables and `Jet_Engine\Relations\Manager` API, learned by building and testing a custom REST endpoint that joined CCT data server-side instead of chaining multiple API calls.
 license: MIT
 metadata:
   author: project
@@ -10,15 +10,14 @@ metadata:
 # JetEngine CCT & Relations Internals
 
 Practical, verified facts about how JetEngine stores and links Custom Content Type (CCT)
-data, gathered by building a real endpoint (`GET /badgeit/v1/get-data-for-print` on
-app.badgeit.io) that replaced 6 chained REST calls with direct DB reads. Everything here
-was confirmed against production data, not just documentation/inference — see
-"How this was verified" at the bottom.
+data, gathered by building a real endpoint that replaced several chained REST calls with
+direct DB reads. Everything here was confirmed against a live JetEngine site, not just
+documentation/inference — see "How this was verified" at the bottom.
 
 ## CCT tables
 
-Each CCT is stored in its own table named `{$wpdb->prefix}jet_cct_{slug}` (e.g.
-`wp_jet_cct_ticketscct`, `wp_jet_cct_eventscct`). The slug is exactly what
+Each CCT is stored in its own table named `{$wpdb->prefix}jet_cct_{slug}` (e.g. a CCT
+with slug `orders` lives in `wp_jet_cct_orders`). The slug is exactly what
 `resource-get-configuration`'s `custom_content_types[].args.slug` reports. Every table
 has a primary key column `_ID` (not `ID`, not `id` — that's a separate, often-unused
 text meta field many CCTs also happen to have).
@@ -36,13 +35,13 @@ interpolated directly into the table name.
 
 ## Relations are NOT always plain FK columns
 
-CCTs sometimes have fields that *look* like foreign keys (`recordid_event`,
-`recordid_ticket`, `recordid_qr_checkin`, etc. on `ticketscct`) — **do not trust these
-are populated.** On real production records they were empty strings. The actual
-parent/child link lived entirely in JetEngine's Relations system instead.
+CCTs sometimes have fields that *look* like foreign keys (e.g. a `related_order_id` or
+`parent_record_id` text field) — **do not trust these are populated.** On a real record
+they may be empty strings even though the field exists in the schema. The actual
+parent/child link can live entirely in JetEngine's Relations system instead.
 
 **How to tell which one a given install actually uses:** query a real record and check
-whether the `recordid_*` column has a value. If it's blank, the relation is managed by
+whether the FK-looking column has a value. If it's blank, the relation is managed by
 the Relations API (below), not the column.
 
 Confirm via `resource-get-configuration` → `relations[]`, which lists every configured
@@ -78,9 +77,9 @@ confirmed by dumping `get_class_methods()` on a live site:
   don't treat the return value itself as an id:
 
   ```php
-  $parents = $relation->get_parents( $ticket_id );
-  $row      = is_array( $parents ) ? reset( $parents ) : null;
-  $event_id = $row ? ( (array) $row )['parent_object_id'] ?? null : null;
+  $parents   = $relation->get_parents( $child_id );
+  $row       = is_array( $parents ) ? reset( $parents ) : null;
+  $parent_id = $row ? ( (array) $row )['parent_object_id'] ?? null : null;
   ```
 
 - `Relation::is_parent()` takes **2 required arguments**, not 1 — don't call it just to
@@ -91,20 +90,20 @@ confirmed by dumping `get_class_methods()` on a live site:
 
 ## `get()`/`map()` flat-key fields (from REST responses)
 
-Custom REST endpoints built on JetEngine CCTs (e.g. `event-by-event-id-badgeit`,
-`get-ticket-qrs-event-from-ticket-id-badgeit`) that join across CCTs return the joined
-table's fields as **flat keys containing a literal dot**, not nested objects:
+Custom REST endpoints built on JetEngine CCTs that join across CCTs (e.g. via Query
+Builder's join-table support) return the joined table's fields as **flat keys
+containing a literal dot**, not nested objects:
 
 ```json
-{ "_ID": "17209", "pdf": "8942", "jet_cct_eventscct._ID": "351",
-  "jet_cct_eventscct.dates_timezone": "America/Los_Angeles" }
+{ "_ID": "17209", "photo": "8942", "jet_cct_events._ID": "351",
+  "jet_cct_events.timezone": "America/Los_Angeles" }
 ```
 
 In Make/Integromat mappers this is why you see backtick-escaped field names like
-`` `jet_cct_eventscct._ID` `` — the backticks are escaping a literal dot inside a single
+`` `jet_cct_events._ID` `` — the backticks are escaping a literal dot inside a single
 key name, not indicating a nested path. When replicating this shape from PHP, build it
-the same way: `$event_row['jet_cct_eventscct._ID'] = ...` as one array key, not
-`$event_row['jet_cct_eventscct']['_ID']`.
+the same way: `$row['jet_cct_events._ID'] = ...` as one array key, not
+`$row['jet_cct_events']['_ID']`.
 
 ## Media fields
 
@@ -112,7 +111,7 @@ A CCT field of type `media` stores a plain WP attachment post ID (integer, as a 
 in the row). To resolve it to a URL, use core WP — no JetEngine API needed:
 
 ```php
-$source_url = wp_get_attachment_url( (int) $row['pdf'] );
+$source_url = wp_get_attachment_url( (int) $row['photo'] );
 ```
 
 ## Debugging JetEngine APIs you're unsure about
@@ -134,18 +133,19 @@ if ( $request->get_param( 'debug_relations' ) && function_exists( 'jet_engine' )
 }
 ```
 
-This found the real API in one round trip instead of guessing method names one fatal
+This finds the real API in one round trip instead of guessing method names one fatal
 error at a time. Required args are declared as fatal `ArgumentCountError`s in the PHP
 error log, which name the exact file/line/expected-count — always paste that back
 rather than re-guessing.
 
 ## How this was verified
 
-Built while consolidating 6 chained Make.com HTTP calls (ticket, printer, print,
-ticket+event join, event, WP media) into one PHP REST endpoint
-(`GET /badgeit/v1/get-data-for-print`) doing direct `$wpdb` reads + Relations API calls
-instead. Verified end-to-end against a real production ticket (id 17209, event 351,
-temp_key `sZsBXV2zWh`) by comparing the new endpoint's output field-by-field against the
-original 6 modules' outputs, then running the updated Make scenario against the same
-webhook payload and confirming a successful replay with the expected drop in operation
-count (26 → 21, i.e. -5 for 6 modules folded into 1).
+Built while consolidating several chained external HTTP calls (a typical pattern:
+fetch record → fetch related record → fetch a second related record → fetch a media
+attachment, done as separate round trips) into one PHP REST endpoint doing direct
+`$wpdb` reads + Relations API calls instead. Verified end-to-end against a real record
+on a live JetEngine site by comparing the new endpoint's output field-by-field against
+the original chained calls' outputs, then confirming a successful replay of the
+consuming automation (Make/Integromat scenario) against the same payload with the
+expected drop in operation count from folding multiple modules into one custom
+endpoint.
