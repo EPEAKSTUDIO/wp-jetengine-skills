@@ -12,6 +12,11 @@ published and that Vercel's `skills.sh` ecosystem builds on) — plain frontmatt
 spec limits) plus Markdown body, no proprietary extensions, so these skills work in any spec-compliant agent, not
 just Claude Code.
 
+Picking this repo up mid-stream (human or agent)? Read [`HANDOFF.md`](HANDOFF.md) first
+— it has current sandbox/test-suite state and the up-to-date backlog;
+[`docs/audit-2026-07-16.md`](docs/audit-2026-07-16.md) is a historical log of how
+coverage grew, not a live status board.
+
 ## Why this exists
 
 We couldn't find any existing skills geared toward JetEngine development, so we started writing our own as we ran

@@ -166,6 +166,12 @@ across sessions is listed here, confirmed `active: false` unless noted:
   (`class_exists()`/`plugin_path()` checks only, no instantiation) — the diagnostic
   that confirmed `DB_Storage`/`Storage\Controller` were already declared before any
   instantiation, root-causing snippet 25's crash.
+- id 27 — "AGENT-TEST-SUITE: jetengine-modules" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetengine-modules/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-modules`. 6/6 pass as of 2026-07-16.
+- id 28 — "AGENT-TEST-SUITE: jetformbuilder-fields" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetformbuilder-fields/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetformbuilder-fields`. 7/7 pass as of 2026-07-16.
 
 None of these run anything while inactive — this is a documentation/tidiness note, not
 a safety issue, **except id 25's route, which is destructive if hit while active** (see

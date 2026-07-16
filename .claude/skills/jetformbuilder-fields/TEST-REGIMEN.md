@@ -1,9 +1,31 @@
 # Test regimen: jetformbuilder-fields
 
-Validates claims in `SKILL.md`. Not yet run — written source-cited-only on 2026-07-16.
-Run against the sandbox site (`jackfruit.epeak.studio`, JetFormBuilder installed, per
-the `jetformbuilder-hooks` regimen's existing fixtures — a test form with at least one
-repeater field would need to be added for Test 2).
+Validates claims in `SKILL.md`. Run against the sandbox site (`jackfruit.epeak.studio`,
+JetFormBuilder installed, per the `jetformbuilder-hooks` regimen's existing fixtures —
+a test form with at least one repeater field would need to be added for Test 2).
+
+## Run log — 2026-07-16: runnable suite added, 7/7 pass
+
+This skill now has a **runnable suite** (`tests.php`, deployed as Code Snippets snippet
+id 28, "AGENT-TEST-SUITE: jetformbuilder-fields") per `docs/test-harness-guide.md` — run
+via `GET /agent-test/v1/suite/jetformbuilder-fields` (requires the always-active
+AGENT-TEST-CORE harness, snippet id 22). No real form submission exists yet on this
+site, so `jfb-1` through `jfb-7` exercise `jet_fb_context()` standalone (a fabricated
+field name written via `update_request()` and read back via `get_value()`, rather than
+a real `$_POST`) plus reachability checks for the block-registration hook, the
+validation-rules controller, the form-records DB table, and the presets classes.
+
+**Result: 7/7 pass** at run_at "2026-07-16 16:06:42", first live run, no fixes needed.
+Notable: `jfb-6` confirmed the Form Records table exists with a real row count check
+(`table_exists: true`) — this site uses a non-default `$wpdb` table prefix, so the
+resolved table name is not the literal `wp_jet_fb_records` a naive guess would produce;
+`Record_Model::table()` computed it correctly.
+
+**What this run did NOT exercise** (still needs the fixtures below): a real form
+submission, repeater-field dotted-path resolution against actually-submitted data
+(Test 2), a custom field block type registered end-to-end (Test 3), and whether any
+*other*, differently-named validation-rule filter exists beyond the one specific guess
+`jfb-5` checked (Test 4's fuller version).
 
 ## Test 1 (not yet run): `jet_fb_context()->get_value()` reads submitted values inside a Call Hook
 

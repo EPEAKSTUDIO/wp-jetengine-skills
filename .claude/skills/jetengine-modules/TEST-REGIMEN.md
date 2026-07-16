@@ -1,8 +1,46 @@
 # Test regimen: jetengine-modules
 
-Validates claims in `SKILL.md`. Not yet run — written source-cited-only on 2026-07-16.
-Run against the sandbox site (`jackfruit.epeak.studio`, JetEngine, confirmed test
-install).
+Validates claims in `SKILL.md`. Run against the sandbox site (`jackfruit.epeak.studio`,
+JetEngine, confirmed test install).
+
+## Run log — 2026-07-16: runnable suite added, 6/6 pass, one doc bug caught before deploy
+
+This skill now has a **runnable suite** (`tests.php`, deployed as Code Snippets snippet
+id 27, "AGENT-TEST-SUITE: jetengine-modules") per `docs/test-harness-guide.md` — run via
+`GET /agent-test/v1/suite/jetengine-modules` (requires the always-active AGENT-TEST-CORE
+harness, snippet id 22). These are reachability/gating smoke tests (`mod-1` through
+`mod-6`), not the heavier fixture-based tests below (no meta-box field groups, options
+pages, or data-store fixtures exist yet on this site).
+
+**One real documentation bug was caught** while writing `mod-6` — re-reading
+`includes/components/post-types/custom-tables/manager.php` to write the assertion
+turned up that the class is namespaced `Jet_Engine\CPT\Custom_Tables\Manager`, not
+`Jet_Engine\Custom_Tables\Manager` as this skill originally documented. Fixed in
+`SKILL.md` (see its "Custom Meta Tables" correction note) before ever deploying the
+suite, then confirmed live: `mod-6` asserts the wrong namespace is absent and the right
+one resolves `get_table_name('agent_test_slug')` to `'agent_test_slug_meta'` — passed
+on the very first live run.
+
+**Result: 6/6 pass** at run_at "2026-07-16 16:06:27". Notable observations from the
+actual run, not failures:
+- `mod-4` (Dynamic Visibility) and `mod-5` (Data Stores) both passed, but
+  `is_module_active` was `false` for both on this site — meaning these two *optional*
+  JetEngine modules aren't enabled here. The tests only confirm the module-gating
+  behavior is internally consistent (class loaded iff active), **not** that
+  `Condition_Checker::check_cond()` or a real `Base_Store` subclass behaves correctly
+  when the module is actually turned on — that still needs Test 4/Test 3 below run for
+  real, once/if those modules get activated on this sandbox.
+- `mod-1`/`mod-2` confirm reachability but found zero registered meta-box field groups
+  or options pages on this site (`count: 0`, `slugs: []`) — so the priority-11 timing
+  trap (Test 1 below) and the storage-mode `get_option()` visibility split (Test 2
+  below) are still not exercised; they need real fixtures, not just reachability.
+
+## Fixture status
+
+No meta-box field groups, options pages, or data-store fixtures exist yet. Tests 1, 2,
+3, and 5 below remain fixture-blocked (source-cited only); Test 4 remains blocked by
+the Dynamic Visibility module being inactive on this site. See `tests.php` for what's
+already automated (reachability layer only).
 
 ## Test 1 (not yet run): `get_fields_for_context()` returns empty before `init` priority 11
 

@@ -1,13 +1,19 @@
 ---
 name: jetformbuilder-fields
-description: Use when you need to read or write a submitted field's value generically (including nested repeater values by dotted path), register a brand-new field block type, understand how a field's raw POST value becomes a typed value (field parsers), add custom field validation, wire a preset/dynamic default value, or read back previously-submitted form entries from storage. Captures verified behavior of `Jet_Form_Builder\Request\Parser_Context`, the block-parsers module, presets, and form-record storage from JetFormBuilder 3.6.3.1 source. Not yet live-verified against a running site — see TEST-REGIMEN.md.
+description: Use when you need to read or write a submitted field's value generically (including nested repeater values by dotted path), register a brand-new field block type, understand how a field's raw POST value becomes a typed value (field parsers), add custom field validation, wire a preset/dynamic default value, or read back previously-submitted form entries from storage. Captures verified behavior of `Jet_Form_Builder\Request\Parser_Context`, the block-parsers module, presets, and form-record storage from JetFormBuilder 3.6.3.1 source, and live-verified via tests.php. See TEST-REGIMEN.md.
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetFormBuilder field data, custom fields, validation, presets, and stored records
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 7
+tests, `jfb-1` through `jfb-7`) per `docs/test-harness-guide.md` — 7/7 pass on first
+live run, no corrections needed this round. See `TEST-REGIMEN.md` for the run log and
+what's still fixture-blocked (a real form submission, repeater dotted-path resolution
+against live data, a full custom field block type).
 
 `jetformbuilder-actions` and `jetformbuilder-hooks` cover the action/hook lifecycle,
 but the single most load-bearing API for actually reading/writing a submitted value —

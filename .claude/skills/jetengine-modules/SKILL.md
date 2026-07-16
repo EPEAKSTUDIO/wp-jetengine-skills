@@ -1,13 +1,20 @@
 ---
 name: jetengine-modules
-description: Use when working with a JetEngine module that isn't CCT/Relations/Query Builder/Listings — Meta Boxes (custom fields for post/term/user/options, not CCT), Options Pages, Data Stores (favorites/recently-viewed lists), Dynamic Visibility (conditional display for Elementor/Blocks/Bricks), Glossaries, or Custom Meta Tables (per-field custom-table post meta storage). Captures verified behavior from JetEngine 3.8.12 source. Not yet live-verified against a running site — see TEST-REGIMEN.md.
+description: Use when working with a JetEngine module that isn't CCT/Relations/Query Builder/Listings — Meta Boxes (custom fields for post/term/user/options, not CCT), Options Pages, Data Stores (favorites/recently-viewed lists), Dynamic Visibility (conditional display for Elementor/Blocks/Bricks), Glossaries, or Custom Meta Tables (per-field custom-table post meta storage). Captures verified behavior from JetEngine 3.8.12 source, and live-verified via tests.php. See TEST-REGIMEN.md.
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetEngine standalone modules
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite
+(`tests.php`, 6 tests, `mod-1` through `mod-6`) per `docs/test-harness-guide.md`. While
+writing it, re-reading the Custom Meta Tables source turned up a real documentation bug
+— the namespace claim below was wrong (see that section for the correction) — `mod-6`
+now asserts the fix directly. See `TEST-REGIMEN.md` for the full run log and pass/fail
+results.
 
 Several JetEngine subsystems are self-contained enough that they don't fit
 `jetengine-cct-internals`, `jetengine-relations`, or `jetengine-query-builder`, but are
@@ -133,23 +140,34 @@ their own sanitizer/blacklist and an optional external-CSV-file mode.
 
 ## Custom Meta Tables (per-field custom-table storage — distinct from CCT)
 
+**Correction (2026-07-16, live-verified):** the original version of this section
+claimed the class was `Jet_Engine\Custom_Tables\Manager`. **That namespace does not
+exist.** The real class is `Jet_Engine\CPT\Custom_Tables\Manager` — confirmed both by
+`grep`-ing the installed plugin source and by this skill's `tests.php` (`mod-6`), which
+asserts the wrong namespace is absent and the right one is present. It's part of the
+always-loaded `cpt` core component (`includes/components/post-types/manager.php:97`),
+not a separate optional module — reachable on any site with JetEngine active, no
+enablement step needed.
+
 When a meta field's "Storage" setting (a per-field admin toggle on regular post-type
 meta boxes) is switched from default `wp_postmeta` to a custom table, reading it with
 core `get_post_meta()` silently returns nothing — the value lives in a dedicated table
 reachable only through this API. Easy to confuse with CCT (a different subsystem,
 different tables entirely) since both involve "JetEngine + a custom DB table."
 
-- `Jet_Engine\Custom_Tables\Manager` —
+- `Jet_Engine\CPT\Custom_Tables\Manager` (singleton via `::instance()`) —
   `includes/components/post-types/custom-tables/manager.php`.
-- `Jet_Engine\Custom_Tables\DB` (extends `Jet_Engine_Base_DB`) —
+- `Jet_Engine\CPT\Custom_Tables\DB` —
   `includes/components/post-types/custom-tables/db.php`.
 - Get the handler for a given post type/field group's storage:
-  `Manager::get_db_instance( $object_slug, $fields )` (`manager.php:97`).
-- `Manager::register_storage( $object_type, $object_slug, $fields )` (`manager.php:426`),
-  `get_table_name( $slug )` (`manager.php:77`).
-- `DB::insert()` / `DB::update()` / `DB::query()` (`db.php:55,88,118`).
-- Filters: `jet-engine/custom-meta-tables/storage-data` (`manager.php:430`),
-  `jet-engine/custom-meta-tables/db/sql-query-parts` (`db.php:148`).
+  `Manager::instance()->get_db_instance( $object_slug, $fields )` (`manager.php:91`).
+- `Manager::instance()->register_storage( $object_type, $object_slug, $fields )` (used
+  internally, see `manager.php` callers), `get_table_name( $slug )` (`manager.php:76`,
+  applies a `_meta` suffix — confirmed live: `get_table_name('foo')` returns
+  `'foo_meta'`).
+- `DB::insert()` / `DB::update()` / `DB::query()` — same public surface as other
+  JetEngine `Base_DB`-style storage classes.
+- Filters: `jet-engine/custom-meta-tables/table-name-for-object-slug` (`manager.php:78`).
 
 ## How this was verified
 
