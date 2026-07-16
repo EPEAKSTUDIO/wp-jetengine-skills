@@ -28,6 +28,10 @@ should create a related CCT record") often spans more than one plugin.
   custom filter types) → `jetsmartfilters-query`
 - **Listing grid / listing item dynamic field macros** (`%macro%` resolution, custom
   macros) → `jetengine-listings-macros`
+- **Deciding whether to call a JetEngine MCP tool** (`tool-add-cct`, `tool-add-cpt`,
+  `tool-add-taxonomy`, `tool-add-meta-box`, `tool-add-query`, `tool-add-listing`,
+  `tool-add-glossary`, `tool-manage-modules`) **vs. writing raw PHP**, or debugging why a
+  tool-created entity doesn't look as expected → `jetengine-mcp-tools`
 - **None of the above / genuinely new territory** → mine the plugin source first (see
   `docs/authoring-guide.md`), then decide whether it fits an existing skill or needs a
   new one.

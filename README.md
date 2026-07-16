@@ -6,7 +6,11 @@ the Crocoblock JetEngine ecosystem — [JetEngine](https://jetengine.crocoblock.
 [JetSmartFilters](https://jetsmartfilters.com/) (filter → query internals) — for the day-to-day tasks of writing PHP
 snippets, hooking into forms, querying data, and resolving relations.
 
-Repo layout is inspired by [WordPress/agent-skills](https://github.com/WordPress/agent-skills).
+Repo layout is inspired by [WordPress/agent-skills](https://github.com/WordPress/agent-skills). Every `SKILL.md`
+here conforms to the open [Agent Skills specification](https://agentskills.io/specification) (the format Anthropic
+published and that Vercel's `skills.sh` ecosystem builds on) — plain frontmatter (`name`/`description`, both within
+spec limits) plus Markdown body, no proprietary extensions, so these skills work in any spec-compliant agent, not
+just Claude Code.
 
 ## Why this exists
 
@@ -36,12 +40,17 @@ new skills are welcome — feel free to open a PR.
   selection into a tax_query/meta_query, the AJAX filtering endpoint, and registering custom filter types/providers.
 - [`jetengine-listings-macros`](.claude/skills/jetengine-listings-macros/SKILL.md) — `%macro%` token syntax and
   parsing, registering a custom macro, and why a macro prints literally instead of resolving.
+- [`jetengine-mcp-tools`](.claude/skills/jetengine-mcp-tools/SKILL.md) — JetEngine's built-in MCP Tools /
+  Features API layer (`tool-add-cct`, `tool-add-cpt`, `tool-add-taxonomy`, `tool-add-meta-box`, `tool-add-query`,
+  `tool-add-listing`, `tool-add-glossary`, `tool-manage-modules`) — what each tool actually creates under the
+  hood, and why the `next_tool` hint field can't be trusted as a real tool name.
 
 Every skill above also has a `TEST-REGIMEN.md` next to its `SKILL.md` — a runnable validation checklist for a future
 session with sandbox (WP snippet read/write + log-viewing endpoint) access to confirm the claims against real
 runtime behavior, not just source reading. See [`docs/test-regimen-guide.md`](docs/test-regimen-guide.md).
 
-More to come.
+More to come — see [`docs/audit-2026-07-16.md`](docs/audit-2026-07-16.md) for a full gap analysis against the
+plugin source (what's covered, what isn't yet, prioritized backlog) and the Open Skills spec compliance check.
 
 ## How to install these skills
 

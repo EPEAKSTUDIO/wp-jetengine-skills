@@ -1,6 +1,6 @@
 ---
 name: jetengine-relations
-description: Use when working with JetEngine Relations beyond simple parent/child lookups — bulk-fetching relations for multiple ids without N+1 queries, wiring the "Connect Relation Items" JetFormBuilder action, hitting the public Relations REST API, or understanding where relation config is actually stored. Captures verified behavior of the `Jet_Engine\Relations\Manager`/`Relation` classes from JetEngine 3.8.12 source, extending the base facts already in `jetengine-cct-internals`.
+description: Use when working with JetEngine Relations beyond simple parent/child lookups — creating/moving/removing a relation link programmatically (`Relation::update()`/`delete_rows()`), writing or reading per-link relation meta (`update_meta()`/`get_meta()` and the gotcha where meta writes silently no-op), bulk-fetching relations for multiple ids without N+1 queries, wiring the "Connect Relation Items" JetFormBuilder action, hitting the public Relations REST API, or understanding where relation config is actually stored. Captures verified behavior of the `Jet_Engine\Relations\Manager`/`Relation` classes from JetEngine 3.8.12 source, extending the base facts already in `jetengine-cct-internals`, with the link-CRUD facts live-verified against a real site.
 license: MIT
 metadata:
   author: project
@@ -71,6 +71,67 @@ on the default non-persistent cache it only dedupes repeats **within the same re
 queries. Use the array form whenever you're resolving relations for a result set, not a
 single record.
 
+## Creating, updating, and removing a relation LINK (not the relation config itself)
+
+Everything above (`get_parents`/`get_children`) is read-only. To actually **connect two
+items** (or move/remove that connection) outside of a form action, `Relation` has real
+public methods — verified live (2026-07-16) against a real relation on
+`jackfruit.epeak.studio`:
+
+```php
+$relation = jet_engine()->relations->get_active_relations( $rel_id );
+
+// Create (or move) a link. Returns the created/existing row array — same shape as
+// get_parents()/get_children() rows (_ID, created, rel_id, parent_rel,
+// parent_object_id, child_object_id) — NOT a bare bool/id.
+$row = $relation->update( $parent_id, $child_id );
+
+// Remove a link. $parent_object/$child_object are optional filters, not required ids:
+// omitting one deletes every row matching just the other side; omitting both wipes
+// every row for the relation. Pass both to remove exactly one pair.
+$relation->delete_rows( $parent_id, $child_id );
+```
+
+**`update()` is idempotent, not additive** — verified: calling it a second time with the
+same parent/child pair returns the existing row instead of creating a duplicate
+(`$exists = $this->db->query([...]); if ( ! empty( $exists ) ) return $exists[0];` —
+source, `relation.php:1446-1454`). For `one_to_many`/`one_to_one` relations (per
+`is_single_child()`/`is_single_parent()`), calling `update()` **replaces** the existing
+single link rather than adding a second one — it deletes the prior row(s) for that side
+first (`relation.php:1469-1504`). There is no separate "connect" vs. "move" method; the
+single-parent/single-child config on the relation determines whether `update()` behaves
+additively (many-to-many) or replaces (one-to-one/one-to-many).
+
+**`update()` auto-creates the relation's DB table on first use**
+(`if ( ! $this->db->is_table_exists() ) { $this->db->create_table(); }`) — a brand-new
+relation with no linked items yet doesn't need any separate "initialize storage" step.
+
+## Relation meta (per-link key/value data): a real, separate gotcha
+
+`update_meta( $parent_object, $child_object, $meta_key, $meta_value )` and
+`delete_meta( $parent_object, $child_object, $meta_key = null )` write to a **second,
+separate DB table** from the main link table (`{prefix}jet_rel_{id}_meta` vs.
+`{prefix}jet_rel_{id}`) — and unlike `update()`, **`update_meta()` does NOT auto-create
+that meta table before writing to it.**
+
+**Verified live and reproducible:** on a relation created via the internal `Data` CRUD
+(no meta fields configured through the admin UI), `update_meta()` returned `null`
+(it has no `return` statement at all — never trust its return value for success/failure
+either way) and a subsequent `get_meta()` for the same key returned `false`, even though
+`update()` had already succeeded and the main `{prefix}jet_rel_{id}` table existed. A
+direct `SHOW TABLES` check confirmed the `_meta` table simply didn't exist yet — the
+write silently no-op'd against a nonexistent table with no error surfaced anywhere.
+
+**Practical rule: don't call `update_meta()` on a relation you just created
+programmatically and expect it to work** unless something else has already caused its
+meta table to exist (e.g. the relation has meta fields configured, which the admin UI
+sets up as a side effect of saving a meta field in the relation editor). If you need
+per-link meta on a programmatically-created relation, verify the meta table exists
+first (or configure at least one meta field on the relation via the admin UI /
+`Data::create_item()` `meta_fields` argument before relying on `update_meta()`) —
+this repo has not yet traced the exact trigger that creates that table, see
+`TEST-REGIMEN.md`.
+
 ## JetFormBuilder integration: "Connect Relation Items" action
 
 JetFormBuilder has a real, built-in form action for this (not something you build
@@ -129,6 +190,17 @@ Read `includes/components/relations/manager.php`, `relation.php`, `data.php`,
 `rest-api/public-controller.php`, and `forms/jet-form-builder/{action,actions-manager,manager}.php`
 in JetEngine 3.8.12 source, confirming method signatures, literal type strings, table
 prefixes, and the JFB action wiring by direct citation (file:line) rather than
-inference. Not yet verified against a running site — see `TEST-REGIMEN.md` for the
-runtime checks a future sandbox session should perform, particularly around bulk-fetch
-query counts and the REST `{context}` param.
+inference. Bulk-fetch query counts and the REST `{context}` param are still not
+verified against a running site — see `TEST-REGIMEN.md`.
+
+The "Creating, updating, and removing a relation LINK" and "Relation meta" sections
+above **were** live-verified (2026-07-16) on `jackfruit.epeak.studio`: created a real
+test relation (id 17, `posts::post` → `cct::agent_test_cct`, via `jet_engine()->relations->data`,
+the same internal CRUD used by the admin UI and by `tool-add-*` MCP tools) using a
+temporary Code Snippets REST probe (id 20, plus a small follow-up probe id 21 — both
+kept inactive, not deleted). Confirmed `update()` creates the link and returns a
+`get_children()`-shaped row; confirmed `update_meta()`/`get_meta()` silently fail
+against a freshly-created relation because its dedicated `_meta` table doesn't exist
+yet (`SHOW TABLES` directly confirmed `{prefix}jet_rel_17` existed while
+`{prefix}jet_rel_17_meta` did not); confirmed `delete_rows()` removes the link. See
+`TEST-REGIMEN.md` for the exact requests/responses.

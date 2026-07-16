@@ -2,9 +2,12 @@
 
 Findings from live-testing the Code Snippets plugin's REST API on the sandbox/site at
 `jackfruit.epeak.studio` (Code Snippets v3.9.6, WP with JetEngine/JetFormBuilder
-installed). **This site is a live production install** (real WooCommerce orders, event
-ticketing data, active business-logic snippets) — not an isolated sandbox. Treat any
-write here as touching production.
+installed). This site carries real-looking WooCommerce/event-ticketing data and several
+live business-logic snippets (it's a multi-purpose plugin test install), but the site
+owner has confirmed **it is not production** — it's fine to test freely here, including
+creating CPTs/CCTs/taxonomies/queries, as long as test artifacts stay clearly namespaced
+(`AGENT-TEST` / `agent_test_*` / `ZZZ-TEST*`) and are kept (not deleted) with a note of
+what they validate, per this repo's convention.
 
 Auth: `Authorization: Bearer <jwt>` (issued by whatever JWT auth plugin is installed;
 not part of Code Snippets itself).
@@ -105,27 +108,48 @@ happened, only the response failed. Same shape as the `DELETE` bug (#6): **don't
 this plugin's REST write-endpoint response codes on this install; always re-`GET` to
 confirm the real state**, whether the initial call reported success or failure.
 
-## Manual cleanup needed on jackfruit.epeak.studio
+## Inventory of test snippets kept on jackfruit.epeak.studio
 
-Six inactive, harmless snippets exist on this site from two separate work sessions and
-could **not** be deleted via the REST API (see finding #6 above) — please delete them
-manually via wp-admin → Snippets:
+Since `DELETE` doesn't reliably work (finding #6) and the repo convention is to keep
+test artifacts rather than delete them, every `AGENT-TEST`/`ZZZ-TEST` snippet created
+across sessions is listed here, confirmed `active: false` unless noted:
 
 - id 13 — "ZZZ-TEST-DELETE-ME-2" (`// test snippet payload probe`)
 - id 14 — blank/untitled (empty-body POST test)
 - id 15 — "ZZZ-TEST-SCOPE" (`// x`)
 - id 16 — "AGENT-TEST sink (log + REST read)" — debug log sink used for the
-  jetformbuilder-hooks/actions TEST-REGIMEN run; also removes the `agent_test_log`
-  wp_option and the `/agent-test/v1/log` REST route once deleted.
+  jetformbuilder-hooks/actions TEST-REGIMEN run; adds the `agent_test_log`
+  wp_option and the `/agent-test/v1/log` REST route while active.
 - id 17 — "AGENT-TEST jetformbuilder hooks/actions regimen" — the hook/filter/action
   registrations used to validate those two TEST-REGIMEN.md files.
 - id 18 — "AGENT-TEST redirect_to_page collision (activate briefly only)" — the
   action-id-collision probe; confirmed inactive, never leave this one active longer
   than a single test submission if reused, since it globally overrides the built-in
   `redirect_to_page` action while on.
+- id 19 — "AGENT-TEST mcp-tools audit (CCT table + query verify)" — adds
+  `GET /agent-test/v1/mcp-audit-cct` while active, dumping the `wp_jet_cct_agent_test_cct`
+  table schema and re-running Query Builder query id 16 live. Used to verify the
+  `jetengine-mcp-tools` skill (see its `TEST-REGIMEN.md`). Activate/deactivate both
+  worked cleanly and instantly on this run (re-`GET`-confirmed `active: false`
+  afterward) — contrary to finding #7 below, this plugin version's activate/deactivate
+  responses were trustworthy this time; still re-`GET` to confirm rather than assuming.
+- id 20 — "AGENT-TEST write-api audit (CCT item CRUD + relation link CRUD)" — adds three
+  routes while active: `GET /agent-test/v1/mcp-audit-cct-write` (CCT row insert/update/
+  delete via `Item_Handler`), `GET /agent-test/v1/mcp-audit-relation-create` (creates
+  relation id 17), `GET /agent-test/v1/mcp-audit-relation-test?rel_id=&parent_id=&child_id=`
+  (`Relation::update()`/`update_meta()`/`get_meta()`/`delete_rows()`). Used to verify the
+  write-side additions to `jetengine-cct-internals` and `jetengine-relations` (see their
+  `TEST-REGIMEN.md` files).
+- id 21 — "AGENT-TEST relation meta-table existence check" — one-off follow-up to
+  snippet 20; adds `GET /agent-test/v1/mcp-audit-relation-meta-table`, confirming
+  relation 17's main link table exists but its `_meta` table doesn't (root cause of the
+  `update_meta()` silent-no-op gotcha in `jetengine-relations`).
 
-All six are confirmed `active: false` as of this session, so none of them run anything
-in the meantime — this is a tidiness cleanup, not a safety issue.
+None of these run anything while inactive — this is a documentation/tidiness note, not
+a safety issue. Related non-snippet test fixtures, kept for the same reason: JetEngine
+CCT id 15 (slug `agent_test_cct`, one row left — `_ID` 2, "AGENT TEST row B"), Query
+Builder query id 16 ("AGENT TEST Query - CCT test items"), and relation id 17
+("AGENT TEST relation (post -> agent_test_cct)").
 
 ## Open question / recommendation
 

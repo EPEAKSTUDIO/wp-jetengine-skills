@@ -1,6 +1,6 @@
 ---
 name: jetengine-cct-internals
-description: Use when writing PHP that reads JetEngine Custom Content Type (CCT) data directly from the database or via the Relations API on any JetEngine site — e.g. building a custom REST endpoint that joins multiple CCTs, resolving a relation between two CCTs, or debugging why a "FK" field on a CCT record is empty. Captures real, verified behavior of JetEngine's CCT tables and `Jet_Engine\Relations\Manager` API, learned by building and testing a custom REST endpoint that joined CCT data server-side instead of chaining multiple API calls.
+description: Use when writing PHP that reads OR writes JetEngine Custom Content Type (CCT) data — directly from the database, via the Relations API, or via the real `Item_Handler::update_item()`/`raw_delete_item()` CRUD API for creating/updating/deleting CCT rows — on any JetEngine site. E.g. building a custom REST endpoint that joins multiple CCTs, resolving a relation between two CCTs, debugging why a "FK" field on a CCT record is empty, or programmatically inserting/updating/deleting a CCT item without hand-rolling `$wpdb` writes. Captures real, verified behavior of JetEngine's CCT tables, the `Item_Handler` write API, and `Jet_Engine\Relations\Manager`, learned by building/testing a custom REST endpoint and by live-verifying CCT row CRUD against a real site.
 license: MIT
 metadata:
   author: project
@@ -114,6 +114,55 @@ in the row). To resolve it to a URL, use core WP — no JetEngine API needed:
 $source_url = wp_get_attachment_url( (int) $row['photo'] );
 ```
 
+## Writing CCT rows: don't hand-roll `$wpdb->insert()` — use `Item_Handler`
+
+Everything above is the *read* side. For **creating, updating, or deleting a CCT row**,
+JetEngine has a real public API — do not `$wpdb->insert()`/`update()`/`delete()` the CCT
+table directly, since that skips status/timestamp/single-post bookkeeping the plugin's
+own admin UI relies on. The verified, correct path:
+
+```php
+$factory = \Jet_Engine\Modules\Custom_Content_Types\Module::instance()
+    ->manager->get_content_types( 'your_cct_slug' ); // Factory instance, false if slug unknown
+$handler = $factory->get_item_handler(); // Item_Handler instance
+
+// Insert: no `_ID` key in the array → new row. Returns the new row's int id.
+$new_id = $handler->update_item( array( 'title' => 'Hello', 'status' => 'draft' ) );
+
+// Update: same method, just include `_ID` → updates that row instead. Returns the id.
+$handler->update_item( array( '_ID' => $new_id, 'title' => 'Hello (edited)' ) );
+
+// Delete: explicitly documented in source as safe to call from anywhere
+// ("Used to delete CCT items programatically from anywhere. All user access
+// checks must be implemented before calling of this method!" — it does NOT
+// check current_user_can() itself).
+$handler->raw_delete_item( $new_id );
+```
+
+**One method (`update_item()`) does both insert and update** — the only signal is
+whether the array contains an `_ID` key, not a separate `insert_item()`/`create_item()`
+method (those names don't exist on `Item_Handler` — don't guess them). Verified live
+(2026-07-16, JetEngine on `jackfruit.epeak.studio`): inserting via `update_item()`
+without `_ID` returns a fresh int id (`1`, then `2` for a second insert); calling it
+again with `'_ID' => 1` updated that same row (title changed, `cct_status` stayed
+`publish`, `cct_modified` bumped); `raw_delete_item( 1 )` removed exactly that row, row
+`2` untouched.
+
+**Gotcha: `status` (your own field, if you named one that) vs. `cct_status` (built-in)
+are two different columns.** `update_item()` doesn't require you to pass `cct_status` —
+it defaults to `'publish'` on insert regardless of what you name your own fields. If a
+CCT has a custom field literally named `status`, don't confuse it with the built-in
+`cct_status` bookkeeping column when reading rows back.
+
+`update_item()` returns an **int id on success or a `WP_Error`** — always check
+`is_wp_error()` before treating the return value as an id; it is not a bare
+`false`-on-failure API.
+
+Fires real hooks around every write, useful for reacting to CCT changes without polling:
+`jet-engine/custom-content-types/{create-item,created-item,update-item,updated-item,delete-item}/{slug}`
+(each interpolates the CCT's slug, mirroring the JetFormBuilder per-action-type hook
+pattern documented in `jetformbuilder-hooks`).
+
 ## Debugging JetEngine APIs you're unsure about
 
 Don't guess method signatures against a live site and iterate on fatals. Add a
@@ -149,3 +198,13 @@ the original chained calls' outputs, then confirming a successful replay of the
 consuming automation (Make/Integromat scenario) against the same payload with the
 expected drop in operation count from folding multiple modules into one custom
 endpoint.
+
+The "Writing CCT rows" section above was added later: read
+`includes/modules/custom-content-types/inc/item-handler.php` (`Item_Handler::update_item()`/
+`raw_delete_item()`) and `inc/manager.php`/`inc/factory.php` (`get_content_types()`,
+`get_item_handler()`) in JetEngine source, then live-verified on
+`jackfruit.epeak.studio` against the `agent_test_cct` CCT (id 15, created for the
+`jetengine-mcp-tools` skill) via a temporary Code Snippets REST probe (id 20, kept
+inactive, not deleted — see `docs/code-snippets-rest-api.md`): inserted two rows,
+updated one by id, confirmed both via direct `$wpdb` read, then deleted one and
+reconfirmed only it was gone.
