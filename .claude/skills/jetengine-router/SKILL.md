@@ -32,6 +32,16 @@ should create a related CCT record") often spans more than one plugin.
   `tool-add-taxonomy`, `tool-add-meta-box`, `tool-add-query`, `tool-add-listing`,
   `tool-add-glossary`, `tool-manage-modules`) **vs. writing raw PHP**, or debugging why a
   tool-created entity doesn't look as expected → `jetengine-mcp-tools`
+- **Fetching/running a configured Query Builder query, or registering a custom query
+  type** (SQL/Posts/Terms/Users/Comments/Repeater queries) → `jetengine-query-builder`
+- **Meta Boxes (custom fields on a post/term/user/options page — not CCT), Options
+  Pages, Data Stores (favorites/recently-viewed), Dynamic Visibility (conditional
+  display), Glossaries, or Custom Meta Tables (custom-table post meta storage)** →
+  `jetengine-modules`
+- **Reading/writing a JetFormBuilder submitted field value generically (incl. nested
+  repeater fields by dotted path), registering a custom field block type, adding
+  validation, wiring a preset/dynamic default, or reading previously-submitted form
+  entries from storage** → `jetformbuilder-fields`
 - **None of the above / genuinely new territory** → mine the plugin source first (see
   `docs/authoring-guide.md`), then decide whether it fits an existing skill or needs a
   new one.

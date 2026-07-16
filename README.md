@@ -44,6 +44,15 @@ new skills are welcome — feel free to open a PR.
   Features API layer (`tool-add-cct`, `tool-add-cpt`, `tool-add-taxonomy`, `tool-add-meta-box`, `tool-add-query`,
   `tool-add-listing`, `tool-add-glossary`, `tool-manage-modules`) — what each tool actually creates under the
   hood, and why the `next_tool` hint field can't be trusted as a real tool name.
+- [`jetengine-query-builder`](.claude/skills/jetengine-query-builder/SKILL.md) — fetching/running a configured
+  Query Builder query (`Manager::get_query_by_id()`), the query-type factory, and registering a custom query type.
+- [`jetengine-modules`](.claude/skills/jetengine-modules/SKILL.md) — Meta Boxes, Options Pages, Data Stores,
+  Dynamic Visibility, Glossaries, and Custom Meta Tables — standalone JetEngine modules beyond CCT/Relations/Query
+  Builder/Listings.
+- [`jetformbuilder-fields`](.claude/skills/jetformbuilder-fields/SKILL.md) — `jet_fb_context()`/`Parser_Context`
+  for reading/writing submitted field values (including dotted-path repeater access), registering a custom field
+  block type, field parsers, the validation-rule extension gap, presets, and where submitted entries are actually
+  stored.
 
 Every skill above also has a `TEST-REGIMEN.md` next to its `SKILL.md` — a runnable validation checklist for a future
 session with sandbox (WP snippet read/write + log-viewing endpoint) access to confirm the claims against real

@@ -119,6 +119,92 @@ pre-storing per-post-type filterable meta/term/taxonomy values so filter option 
 and counts can be fetched without live `get_terms()`/meta scans. **Not required for
 filters to function** — purely a lookup-speed optimization for large datasets.
 
+**Write side and read side are different classes with unrelated method names** — don't
+assume one `Indexer` class with a single `index($post_id)` method:
+
+- `Jet_Smart_Filters_Indexer_Manager` (`includes/indexer/manager.php`) is the write
+  side. `add_single_data( $id, $type )` (`manager.php:262`) and
+  `remove_single_data( $id, $type )` (`manager.php:369`) re-index or drop one
+  post/user/term — call these yourself if you bypass normal save hooks (e.g. bulk
+  `$wpdb` writes, an import script). Building the row itself is filterable per source:
+  `jet-smart-filters/indexer/get-post-meta` / `get-user-meta` / `get-term-meta`
+  (`manager.php:476-563`) control what value gets captured for a given meta key, and
+  `jet-smart-filters/indexer/single-item-data` (`manager.php:355`) lets you mutate a
+  row right before it's written.
+- `Jet_Smart_Filters_Indexer_Data` (`includes/indexer/data.php`) is the read side, and
+  is what actually backs the `jet_smart_filters_get_indexed_data` AJAX action already
+  mentioned above: `get_indexed_data( $provider_key, $query_args )` (`data.php:121`),
+  `get_queried_ids( $args )` (`data.php:541`).
+
+## JetSmartFilters has its own Listing/Query-Builder engine — separate from JetEngine's
+
+Easy to miss entirely: independent of JetEngine's Listing Grid module (different
+plugin, different DB table), JetSmartFilters ships its own listing/grid rendering and
+storage system under namespace `Jet_Smart_Filters\Listing`:
+
+- Entry point `Listing\Controller` (`includes/listing/controller.php`); rendering base
+  `Listing\Render\Listing_Base` (`includes/listing/render/listing-base.php`) with
+  `get_query_args()` (`:128`) / `get_query()` (`:177`), filterable via
+  `jet-smart-filters/listing/render/raw-query-args` and
+  `jet-smart-filters/listing/render/query`.
+- Query dispatch is a factory, same pattern as the JetEngine Query Builder documented
+  in `jetengine-query-builder`: `Listing\Render\Query_Factory::register_query_type( $type, $class )`
+  (`query-factory.php:41`), fired from
+  `do_action('jet-smart-filters/listing/render/query-types/register')` (`:32`). Only
+  one built-in type ships (`Query_Types\Posts`, `includes/listing/render/query-types/posts.php`)
+  — this is the real extension point for a custom listing source.
+- Storage is a **generic DB-backed CRUD class**, not WP posts:
+  `Listing\Storage\Controller::get_listing()` / `update_listing()` / `get_listing_item()`
+  (`storage/controller.php:68,89,144`), backed by `Listing\Storage\DB_Storage`
+  (`storage/db-storage.php`) and its own custom table. A task like "read/write a JSF
+  listing definition programmatically" needs this class, not `get_post()`/CCT lookups.
+
+## Provider Helpers — a magic-getter registry, not static calls
+
+`Jet_Smart_Filters_Provider_Helpers_Manager` (`includes/providers/helpers/manager.php`)
+exposes one helper singleton per integration through `__get()` (`manager.php:60`) —
+e.g. `jet_smart_filters()->providers->helpers->elementor` gives you
+`get_filtered_post_id()` / `get_widget_query_id()` (`elementor.php:22,121`). Don't guess
+a static `Jet_Smart_Filters_Elementor_Helper::method()` call — go through the
+`->helpers->{integration}` accessor.
+
+## Tax-query / plain-query dynamic vars — a per-query-type mini-system, resolved twice
+
+Previously untraced; now confirmed: `includes/tax-query/` and `includes/plain-query/`
+each implement the **same** dynamic-tag/query-var substitution pattern independently
+(`Jet_Smart_Filters_Plain_Query_Manager` extends the tax-query manager), not a shared
+service:
+
+- `Tax_Query_Var::filter_instance_replace_var( $filter_args )` (`tax-query/query-var.php:22`)
+  resolves a placeholder like `%current_post_id%` inside a filter's own settings **at
+  render time**.
+- `indexing_filter_data_replace_var()` / `indexer_filter_source_replace_var()`
+  (`tax-query/query-var.php:84,100`) resolve the same placeholder again, separately,
+  **when the indexer reads that filter's config** to build its index.
+
+**Gotcha:** a custom dynamic var registered only in the render-time path (the first
+hook) will resolve correctly on the front end but leave indexed data stale, because the
+indexer never sees it — hook both paths (and both `tax-query`/`plain-query` variants,
+since they don't share the hook) if the filter's data source can be indexed.
+
+## The admin REST namespace has a direct-CRUD PHP escape hatch
+
+`jet-smart-filters-api/v1` (`includes/rest-api/manager.php`, endpoints under
+`includes/rest-api/endpoints/`) is editor/admin-UI only, as already noted below — but
+its actual backing CRUD, `Jet_Smart_Filters\Services\Service_Filters`
+(`includes/services/filters.php`), is directly callable from custom PHP without
+going through REST at all: `get()` (`:25`), `restore()` (`:177`),
+`move_to_trash()` (`:211`), `delete()` (`:248`) — useful for e.g. bulk-programmatically
+trashing/restoring filter posts in a migration script.
+
+## Hierarchical term rendering is a bespoke `Walker`, not the filter-type pipeline
+
+`Jet_Smart_Filters_Terms_Walker` (`includes/walkers/terms-walker.php`) extends core WP
+`Walker` and is invoked only from the `jet_smart_filters_get_hierarchy_level` AJAX
+handler — it does **not** go through each filter type's `prepare_args()`. To customize
+per-term markup/attributes for hierarchical checkbox/radio filters, filter inside
+`start_el()` (`terms-walker.php:74`), not the filter-type registration pipeline above.
+
 ## Gotchas
 
 - **Default query merging in AJAX mode**: `get_query_args()` merges the page's
@@ -136,15 +222,22 @@ filters to function** — purely a lookup-speed optimization for large datasets.
 - Compatibility patch files exist for JetEngine indexer/range/macros integration, plus
   WooCommerce, WPML, RankMath SEO, and Weglot — flagging known integration friction
   points, though their specific fixes weren't traced in this pass.
-- Not yet traced: `includes/plain-query/` and `includes/tax-query/` (URL query-var/
-  dynamic-var handling), and the contents of `includes/compatibility/*` patch files.
+- Not yet traced: the contents of `includes/compatibility/*` patch files.
 
 ## How this was verified
 
 Read `includes/filters/checkboxes.php`, `includes/filters/base.php`,
 `includes/filters/manager.php`, `includes/query.php`, `includes/render.php`,
-`includes/providers/base.php`, `includes/providers/manager.php`, and
-`includes/providers/jet-engine.php` in JetSmartFilters 3.8.3.1 source, confirming the
-checkboxes→query-arg pipeline, AJAX endpoint flow, and both registration hooks by
-direct file:line citation. Not yet verified against a running site — see
-`TEST-REGIMEN.md`.
+`includes/providers/base.php`, `includes/providers/manager.php`,
+`includes/providers/jet-engine.php`, `includes/indexer/manager.php`,
+`includes/indexer/data.php`, `includes/providers/helpers/manager.php`,
+`includes/listing/{controller,render/listing-base,render/query-factory}.php`,
+`includes/listing/storage/{controller,db-storage}.php`,
+`includes/tax-query/query-var.php`, `includes/plain-query/manager.php`,
+`includes/services/filters.php`, and `includes/walkers/terms-walker.php` in
+JetSmartFilters 3.8.3.1 source, confirming the checkboxes→query-arg pipeline, AJAX
+endpoint flow, both registration hooks, and the 2026-07-16 follow-up findings (indexer
+read/write split, the standalone Listing engine, provider helpers registry, tax/plain
+dynamic-var double-resolution, `Service_Filters` direct-CRUD escape hatch, and the
+terms walker) by direct file:line citation. Not yet verified against a running site —
+see `TEST-REGIMEN.md`.
