@@ -136,6 +136,13 @@ assume one `Indexer` class with a single `index($post_id)` method:
   mentioned above: `get_indexed_data( $provider_key, $query_args )` (`data.php:121`),
   `get_queried_ids( $args )` (`data.php:541`).
 
+**Confirmed live: `jet_smart_filters()->indexer->data` is `null` (not an object) on a
+site with `use_indexed_filters` off (the default)** — `Indexer_Manager::__construct()`
+returns early before ever assigning `$this->data` (`manager.php:34-38`). Guard with
+`if ( jet_smart_filters()->indexer->data )` before calling anything on it — don't
+assume it's always an instantiated object just because the indexer classes are
+documented here.
+
 ## JetSmartFilters has its own Listing/Query-Builder engine — separate from JetEngine's
 
 Easy to miss entirely: independent of JetEngine's Listing Grid module (different
@@ -154,19 +161,56 @@ storage system under namespace `Jet_Smart_Filters\Listing`:
   one built-in type ships (`Query_Types\Posts`, `includes/listing/render/query-types/posts.php`)
   — this is the real extension point for a custom listing source.
 - Storage is a **generic DB-backed CRUD class**, not WP posts:
-  `Listing\Storage\Controller::get_listing()` / `update_listing()` / `get_listing_item()`
-  (`storage/controller.php:68,89,144`), backed by `Listing\Storage\DB_Storage`
-  (`storage/db-storage.php`) and its own custom table. A task like "read/write a JSF
-  listing definition programmatically" needs this class, not `get_post()`/CCT lookups.
+  `Listing\Storage\Controller::get_listings()` / `get_listing()` (`storage/controller.php:43,68`),
+  backed by `Listing\Storage\DB_Storage` (`storage/db-storage.php`) and its own custom
+  table (prefix `{wp_prefix}jsf_`, e.g. `{wp_prefix}jsf_listings` —
+  `db-storage.php:29`). A task like "read/write a JSF listing definition
+  programmatically" needs this class, not `get_post()`/CCT lookups.
 
-## Provider Helpers — a magic-getter registry, not static calls
+  **Live-verified landmine (2026-07-16): never call `new \Jet_Smart_Filters\Listing\Storage\Controller()`
+  yourself.** Its constructor does an unconditional `require` (not `require_once`) of
+  `db-storage.php` (`storage/controller.php:19`). The top-level
+  `\Jet_Smart_Filters\Listing\Controller` is a real singleton
+  (`Controller::instance()`, `listing/controller.php:70`) whose `init_components()`
+  (hooked on WP `init`) already instantiates `Storage\Controller` into its own
+  `->storage` property (`listing/controller.php:59`) on every normal request where the
+  Listing module is active — which is effectively always, since it's `require`d
+  unconditionally from the main plugin bootstrap. By the time any `rest_api_init`-timed
+  code runs, `Storage\Controller`/`DB_Storage` are **already declared**. Instantiating
+  a second `Storage\Controller` yourself re-runs that `require`, which is a **compile-time
+  "Cannot redeclare class" fatal — uncatchable by try/catch, crashes the entire
+  request** with a generic WordPress "critical error" page (confirmed live: this is
+  exactly what happened when this skill's first test suite tried it). **The correct
+  way to reach it:**
+  ```php
+  $storage  = \Jet_Smart_Filters\Listing\Controller::instance()->storage;
+  $listings = $storage->get_listings();
+  ```
 
-`Jet_Smart_Filters_Provider_Helpers_Manager` (`includes/providers/helpers/manager.php`)
-exposes one helper singleton per integration through `__get()` (`manager.php:60`) —
-e.g. `jet_smart_filters()->providers->helpers->elementor` gives you
-`get_filtered_post_id()` / `get_widget_query_id()` (`elementor.php:22,121`). Don't guess
-a static `Jet_Smart_Filters_Elementor_Helper::method()` call — go through the
-`->helpers->{integration}` accessor.
+## Provider Helpers — a magic-getter on each PROVIDER instance, not on the providers manager
+
+**Correction (2026-07-16, live-verified):** `jet_smart_filters()->providers` is the
+*registry* (`Jet_Smart_Filters_Providers_Manager`, `includes/providers/manager.php`) —
+it has **no `helpers` property of its own** (confirmed live: accessing it returns
+`null`, no fatal, just nothing there). `helpers` is a lazy-initialized property on each
+individual **provider instance** (e.g. the JetEngine provider,
+`Jet_Smart_Filters_Provider_Jet_Engine extends Jet_Smart_Filters_Provider_Base`),
+populated via that base class's own magic `__get('helpers')`
+(`includes/providers/base.php:120-129`), which calls `init_helpers()` (`base.php:103`)
+to construct a `Jet_Smart_Filters_Provider_Helpers_Manager`
+(`includes/providers/helpers/manager.php`) on first access. Get the provider instance
+first, via `Providers_Manager::get_providers( $provider_id )` (`manager.php:140`,
+e.g. `$provider_id = 'jet-engine'` — confirmed via `Provider_Jet_Engine::get_id()`,
+`providers/jet-engine.php:127-129`), **then** read `->helpers` off *that* object:
+
+```php
+$provider = jet_smart_filters()->providers->get_providers( 'jet-engine' );
+$helpers  = $provider->helpers; // triggers the base class's lazy __get(), not a plain property read
+$post_id  = $helpers->elementor->get_filtered_post_id(); // elementor.php:22
+```
+
+Don't guess a static `Jet_Smart_Filters_Elementor_Helper::method()` call, and don't
+assume `jet_smart_filters()->providers->helpers` resolves to anything — it doesn't.
 
 ## Tax-query / plain-query dynamic vars — a per-query-type mini-system, resolved twice
 
@@ -191,11 +235,13 @@ since they don't share the hook) if the filter's data source can be indexed.
 
 `jet-smart-filters-api/v1` (`includes/rest-api/manager.php`, endpoints under
 `includes/rest-api/endpoints/`) is editor/admin-UI only, as already noted below — but
-its actual backing CRUD, `Jet_Smart_Filters\Services\Service_Filters`
-(`includes/services/filters.php`), is directly callable from custom PHP without
-going through REST at all: `get()` (`:25`), `restore()` (`:177`),
-`move_to_trash()` (`:211`), `delete()` (`:248`) — useful for e.g. bulk-programmatically
-trashing/restoring filter posts in a migration script.
+its actual backing CRUD, `Jet_Smart_Filters_Service_Filters` (no namespace, despite the
+name — plain global class, `includes/services/filters.php`), is directly callable from
+custom PHP without going through REST at all, reachable as
+`jet_smart_filters()->services->filters` (`includes/services/services.php:19`):
+`get( $args )` (`:25`), `restore()` (`:177`), `move_to_trash( $ids )` (`:211`),
+`delete()` (`:248`) — useful for e.g. bulk-programmatically trashing/restoring filter
+posts in a migration script.
 
 ## Hierarchical term rendering is a bespoke `Walker`, not the filter-type pipeline
 

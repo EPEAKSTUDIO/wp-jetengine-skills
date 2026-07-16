@@ -144,12 +144,35 @@ across sessions is listed here, confirmed `active: false` unless noted:
   snippet 20; adds `GET /agent-test/v1/mcp-audit-relation-meta-table`, confirming
   relation 17's main link table exists but its `_meta` table doesn't (root cause of the
   `update_meta()` silent-no-op gotcha in `jetengine-relations`).
+- id 22 — **"AGENT-TEST-CORE harness (keep active, do not delete)"** — shared runnable
+  test-suite infrastructure (`agent_test_assert()`/`agent_test_run_suite()` plus
+  `GET /agent-test/v1/suite/{suite}` and `/suites`). Source of truth:
+  `test-harness/core-snippet.php`. **Keep this one active permanently** — every
+  `AGENT-TEST-SUITE:*` snippet below depends on it. See `docs/test-harness-guide.md`.
+- id 23 — "AGENT-TEST-SUITE: jetengine-query-builder" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetengine-query-builder/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-query-builder`.
+- id 24 — "AGENT-TEST-SUITE: jetsmartfilters-query" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetsmartfilters-query/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetsmartfilters-query`.
+- id 25 — "ZZZ-DIAG isolated jsf-3 probe" — **deactivated, do not activate/hit its
+  route.** One-off diagnostic that directly calls
+  `new \Jet_Smart_Filters\Listing\Storage\Controller()` to isolate a crash found while
+  building suite 24 — confirmed this line alone triggers an uncatchable "Cannot
+  redeclare class" fatal (critical error page) on this site. Kept inactive as a
+  documented reproduction of that landmine (see `jetsmartfilters-query/SKILL.md`'s
+  "Live-verified landmine" note) rather than deleted.
+- id 26 — "ZZZ-DIAG isolated jsf-3b probe (pre-check)" — deactivated, harmless
+  (`class_exists()`/`plugin_path()` checks only, no instantiation) — the diagnostic
+  that confirmed `DB_Storage`/`Storage\Controller` were already declared before any
+  instantiation, root-causing snippet 25's crash.
 
 None of these run anything while inactive — this is a documentation/tidiness note, not
-a safety issue. Related non-snippet test fixtures, kept for the same reason: JetEngine
-CCT id 15 (slug `agent_test_cct`, one row left — `_ID` 2, "AGENT TEST row B"), Query
-Builder query id 16 ("AGENT TEST Query - CCT test items"), and relation id 17
-("AGENT TEST relation (post -> agent_test_cct)").
+a safety issue, **except id 25's route, which is destructive if hit while active** (see
+above). Related non-snippet test fixtures, kept for the same reason: JetEngine CCT id
+15 (slug `agent_test_cct`, one row left — `_ID` 2, "AGENT TEST row B"), Query Builder
+query id 16 ("AGENT TEST Query - CCT test items"), and relation id 17 ("AGENT TEST
+relation (post -> agent_test_cct)").
 
 ## Open question / recommendation
 

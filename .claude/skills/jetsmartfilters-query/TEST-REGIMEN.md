@@ -16,6 +16,46 @@ none of it was attempted.
 can have) a JetEngine listing grid with a checkboxes filter wired to it, per the
 Prerequisites below, then run these tests as written.
 
+## Run log — 2026-07-16: unblocked, JetSmartFilters installed — runnable suite added
+
+The site owner installed JetSmartFilters on jackfruit.epeak.studio. This skill now has
+a **runnable suite** (`tests.php`, deployed as Code Snippets snippet id 24,
+"AGENT-TEST-SUITE: jetsmartfilters-query") per `docs/test-harness-guide.md` — run live
+via `GET /agent-test/v1/suite/jetsmartfilters-query` (requires the always-active
+AGENT-TEST-CORE harness, snippet id 22). These are class/accessor-reachability smoke
+tests (jsf-1 through jsf-5) — no filter/listing fixtures exist yet on this site, so the
+full pipeline (Tests 1-6 below, checkboxes → query args → AJAX) is still not exercised.
+
+**This run caught two real documentation bugs and one genuine plugin landmine** —
+exactly the reason this repo now runs suites instead of trusting source-reading alone:
+
+1. **Crash, then fix (jsf-3):** the first version of this test did
+   `new \Jet_Smart_Filters\Listing\Storage\Controller()` directly — this **crashed the
+   entire site** with an uncatchable "Cannot redeclare class" fatal (confirmed via an
+   isolated diagnostic snippet, id 25, deactivated but kept as a documented
+   reproduction). Root cause: `\Jet_Smart_Filters\Listing\Controller::instance()`
+   already instantiates one into its own `->storage` property during normal WP `init`,
+   and `Storage\Controller`'s constructor does an unconditional `require` (not
+   `require_once`), so a second instantiation redeclares an already-declared class.
+   Fixed to use `Listing\Controller::instance()->storage` instead — now PASS. See
+   `SKILL.md`'s "Live-verified landmine" note.
+2. **Wrong claim, then fix (jsf-4):** originally asserted
+   `jet_smart_filters()->providers->helpers` — failed (`null`, no such property). The
+   real accessor is `jet_smart_filters()->providers->get_providers('jet-engine')->helpers`
+   (a lazy `__get()` on the individual provider instance, not the providers manager).
+   Fixed — now PASS. See `SKILL.md`'s "Provider Helpers" correction.
+3. **Overly strict test, then fix (jsf-2):** originally required
+   `jet_smart_filters()->indexer->data` to be truthy — failed, because the indexer is
+   disabled by default on this site (`is_indexer_enabled: false`), and `->data` is
+   genuinely `null` in that state (confirmed as expected, not a bug, by reading
+   `Indexer_Manager::__construct()`'s early-return). Fixed the assertion to check
+   "`data` is null iff disabled" instead of "`data` is always an object" — now PASS.
+
+**Final result after fixes: 5/5 pass** (`jsf-1` through `jsf-5`). See `SKILL.md` for the
+corrected facts; see `docs/test-harness-guide.md`'s "is the plugin wrong, or is the
+test wrong" section — all three of these were **test/documentation bugs**, not
+JetSmartFilters behavior changes.
+
 ## Prerequisites
 
 - A page with a JetEngine listing grid and a checkboxes filter (taxonomy-sourced) and
