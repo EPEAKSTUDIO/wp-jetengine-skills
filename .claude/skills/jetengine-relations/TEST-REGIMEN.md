@@ -2,6 +2,32 @@
 
 Validates claims in `SKILL.md`. Run against the sandbox site (JetEngine 3.8.12).
 
+## Run log — 2026-07-16: runnable suite added, 6/6 pass
+
+Added `tests.php` (per `docs/test-harness-guide.md`), deployed as Code Snippets snippet
+id 30, run via `GET /agent-test/v1/suite/jetengine-relations`. Reuses relation id 17 and
+CCT row `_ID` 2 as fixtures; `rel-2`/`rel-3` create and remove their own link (parent
+post id 1, child cct row 2) each run, so nothing accumulates.
+
+- **rel-1** (`get_relations_types()` enumerates exactly the 3 documented type strings):
+  PASS.
+- **rel-2** (`update()`/`get_children()`/`delete_rows()` full roundtrip, self-cleaning —
+  automates the manual Test 7/8 above): PASS.
+- **rel-3** (`update()` idempotent — same pair twice returns the same row `_ID`, not a
+  duplicate — automates the previously source-only-confirmed half of Test 7): PASS.
+- **rel-4** (bulk `get_children()` accepts an array of ids without fataling): PASS. Note:
+  this only confirms no-fatal-on-array-input, not the specific query-count claim (Test 1
+  above, which needs `$wpdb->num_queries` deltas or Query Monitor — still not automated).
+- **rel-5** (`update_meta()`/`get_meta()` silent no-op gotcha, automates Test 9 above):
+  PASS — re-confirms the `_meta` table still doesn't exist for relation 17.
+- **rel-6** (relation config lives in a real `jet_rel_{id}` table, automates Test 4
+  above): PASS.
+
+No bugs found this round. Still not automated: exact query-count assertions (Test 1),
+relation-type enforcement-at-query-time (Test 3), the JetFormBuilder "Connect Relation
+Items" action (Test 5, needs a real form submission), and the public REST API `{context}`
+param values (Test 6, needs a live HTTP call against `/jet-rel/...`).
+
 ## Run log — 2026-07-15: BLOCKED, not executed
 
 Attempted against jackfruit.epeak.studio, believed at the time to be a live production

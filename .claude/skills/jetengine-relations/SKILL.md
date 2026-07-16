@@ -4,10 +4,14 @@ description: Use when working with JetEngine Relations beyond simple parent/chil
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetEngine Relations (deep dive)
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 6
+tests, `rel-1` through `rel-6`) per `docs/test-harness-guide.md` — 6/6 pass on first
+live run, no corrections needed. See `TEST-REGIMEN.md` for the run log.
 
 Builds on the base facts in `jetengine-cct-internals` (`jet_engine()->relations` is a
 `Jet_Engine\Relations\Manager`; `get_active_relations()` returns `Relation` objects

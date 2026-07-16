@@ -4,10 +4,16 @@ description: Use when you need to run custom PHP against a JetFormBuilder form s
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetFormBuilder Hooks
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 3
+tests, `hooks-1` through `hooks-3`) per `docs/test-harness-guide.md` — 3/3 pass on first
+live run. One addition beyond the 2026-07-15 manual run below: `dynamic_success()`/
+`dynamic_error()` are the real mechanism behind "a thrown exception can still register as
+success" — see the updated gotcha below and `TEST-REGIMEN.md`.
 
 Verified facts about JetFormBuilder's submission lifecycle: what fires, in what order,
 with what arguments — and the one built-in mechanism (`Call Hook` action) that lets you
@@ -104,7 +110,15 @@ the action loop — there is no hook-priority mechanism between them.
   `is_success` comes from `$exception->is_success()`, meaning a thrown exception can
   still register as "success" depending on how it's constructed. Don't assume "threw an
   exception" always means "form failed" — check what `is_success()` the exception
-  actually returns.
+  actually returns. **Pinned down exactly (2026-07-16, live-verified via `tests.php`
+  hooks-1/hooks-2): `is_success()` is `true` only for the literal, case-sensitive string
+  `'success'`** as the exception's message — any other message is `false` by default. To
+  make an arbitrary custom message still count as success/failure, the real mechanism is
+  `->dynamic_success()`/`->dynamic_error()` on the exception (defined on the parent
+  `Handler_Exception`): these prefix the message (`'dsuccess|'`/`'derror|'`) so
+  `Status_Info` classifies it via a registered "dynamic type" instead of requiring the
+  literal string — e.g. `throw ( new Action_Exception( 'promo code invalid' ) )->dynamic_error();`
+  still fails the form even though the message isn't `'failed'`.
 - I found **no evidence** the lifecycle above differs between block-editor forms and
   legacy shortcode forms (shared code path in `form-handler.php`/`action-handler.php`);
   I did not trace every legacy code path exhaustively, so treat "no difference" as

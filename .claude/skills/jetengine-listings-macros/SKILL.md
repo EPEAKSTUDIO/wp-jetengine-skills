@@ -4,10 +4,17 @@ description: Use when working with JetEngine listing grid/item dynamic field mac
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetEngine Listings Macros
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 5
+tests, `macros-1` through `macros-5`) per `docs/test-harness-guide.md` — 5/5 pass on
+first live run. **One real finding** beyond what was previously documented: pipe-arg
+syntax (`%macro|foo,bar%`) is silently dropped unless the macro class declares a matching
+`macros_args()` schema — see the new callout under "Registering a custom macro" and
+`TEST-REGIMEN.md`.
 
 Verified facts about JetEngine's `%macro%` token parser, the registry that resolves a
 macro tag to a callback, and how to register a custom macro. Confirmed against
@@ -74,6 +81,17 @@ class Products_In_Cart extends \Jet_Engine_Base_Macros {
 Required methods (abstract on `Crocoblock\Base_Macros`): `macros_tag()`,
 `macros_name()`, `macros_callback( $args = [] )`. Optional: `macros_args()` (arg
 definitions for the editor UI, defaults to `[]`).
+
+**Finding (2026-07-16, live-verified via `tests.php` macros-2/macros-3): pipe args are
+silently dropped if `macros_args()` isn't declared.** `_macros_callback()`
+(`includes/base/base-macros.php`) only explodes the raw `%macro|foo,bar%` pipe string
+into `$args` **inside a loop over `get_macros_args()`'s keys** — if a macro class doesn't
+override `macros_args()` (the default is `[]`), `macros_callback()` receives an **empty**
+`$args` array regardless of what was actually piped in, not the raw string. To receive
+pipe args at all, declare `macros_args()` with one entry per expected positional arg
+(e.g. `['first' => ['label' => 'First']]`); the piped values then map onto those keys in
+declared order (confirmed: `%my_macro|hello-value%` → `$args['first'] === 'hello-value'`
+when exactly one arg is declared).
 
 Registration is just instantiating the class inside the `jet-engine/register-macros`
 action — the base constructor handles hooking itself into the registry:

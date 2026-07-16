@@ -2,6 +2,31 @@
 
 Validates claims in `SKILL.md`. Run against the sandbox site (JetFormBuilder 3.6.3.1).
 
+## Run log — 2026-07-16: runnable suite added, 3/3 pass
+
+Added `tests.php` (per `docs/test-harness-guide.md`), deployed as Code Snippets snippet
+id 33, run via `GET /agent-test/v1/suite/jetformbuilder-actions`. Unlike the 2026-07-15
+manual run below (real curl submission against a throwaway form), these tests call
+`Base`/`Action_Exception`/`Manager` directly within the REST request — no form
+submission needed, and safe to re-run indefinitely (registration effects are scoped to
+the single PHP request).
+
+- **act-1** (`Base`'s default `dependence()`/`is_disabled()`/`on_register_in_flow()`):
+  PASS — automates the "no Module wrapper needed" half of Test 1 above (the "appears in
+  the editor UI" half still needs a browser, remains UNCLEAR).
+- **act-2** (`Action_Exception` message→status/`is_success()` wiring, pinned to the exact
+  literal-string-only rule): PASS — automates and sharpens Test 3 above; confirms
+  `is_success()` is `true` only for the literal string `'success'`.
+- **act-3** (silent ID collision on `redirect_to_page`, done safely within a single
+  request instead of a live/global override window): PASS — automates Test 4 above with
+  no risk to other visitors (the earlier manual run had to keep an active override
+  snippet live briefly, since it mutated global state across requests; this suite's
+  mutation is scoped to one PHP process).
+
+Test 2 (repeater-field `$request` shape) and Test 5 (registration timing, `init`
+priority 99) remain not automated — both still need a real form submission with a
+repeater field / a deliberately-late `dependence()` check, respectively.
+
 ## Run log — 2026-07-15, executed against jackfruit.epeak.studio
 
 Same live-production caveat and fixture as `jetformbuilder-hooks/TEST-REGIMEN.md`: no

@@ -172,6 +172,24 @@ across sessions is listed here, confirmed `active: false` unless noted:
 - id 28 — "AGENT-TEST-SUITE: jetformbuilder-fields" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetformbuilder-fields/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetformbuilder-fields`. 7/7 pass as of 2026-07-16.
+- id 29 — "AGENT-TEST-SUITE: jetengine-cct-internals" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetengine-cct-internals/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-cct-internals`. 3/3 pass as of 2026-07-16.
+- id 30 — "AGENT-TEST-SUITE: jetengine-relations" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetengine-relations/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-relations`. 6/6 pass as of 2026-07-16.
+- id 31 — "AGENT-TEST-SUITE: jetengine-mcp-tools" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetengine-mcp-tools/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-mcp-tools`. 4/4 pass as of 2026-07-16.
+- id 32 — "AGENT-TEST-SUITE: jetengine-listings-macros" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetengine-listings-macros/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-listings-macros`. 5/5 pass as of 2026-07-16.
+- id 33 — "AGENT-TEST-SUITE: jetformbuilder-actions" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetformbuilder-actions/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetformbuilder-actions`. 3/3 pass as of 2026-07-16.
+- id 34 — "AGENT-TEST-SUITE: jetformbuilder-hooks" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetformbuilder-hooks/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetformbuilder-hooks`. 3/3 pass as of 2026-07-16.
 
 None of these run anything while inactive — this is a documentation/tidiness note, not
 a safety issue, **except id 25's route, which is destructive if hit while active** (see

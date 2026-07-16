@@ -63,7 +63,7 @@ Every skill above also has a `TEST-REGIMEN.md` next to its `SKILL.md` — a runn
 session with sandbox (WP snippet read/write + log-viewing endpoint) access to confirm the claims against real
 runtime behavior, not just source reading. See [`docs/test-regimen-guide.md`](docs/test-regimen-guide.md).
 
-Some skills additionally have a `tests.php` — a machine-checkable suite (deployed as a Code Snippets snippet) that
+Every domain skill also has a `tests.php` — a machine-checkable suite (deployed as a Code Snippets snippet) that
 returns structured pass/fail JSON over REST, so a future agent can re-verify every claim with one `curl` instead of
 reinventing probe code. See [`docs/test-harness-guide.md`](docs/test-harness-guide.md) and
 [`test-harness/core-snippet.php`](test-harness/core-snippet.php) for the shared infrastructure this depends on.

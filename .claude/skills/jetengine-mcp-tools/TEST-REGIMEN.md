@@ -1,5 +1,32 @@
 # Test regimen: jetengine-mcp-tools
 
+## Run log — 2026-07-16: runnable suite added, 4/4 pass
+
+Added `tests.php` (per `docs/test-harness-guide.md`), deployed as Code Snippets snippet
+id 31, run via `GET /agent-test/v1/suite/jetengine-mcp-tools`. Deliberately does NOT call
+any `tool-add-*` live (that would create a new entity every run) — instead re-inspects
+the `Registry`/`Feature` objects directly (read-only) and re-checks the existing fixtures
+from the original live pass (CCT id 15, query id 16), so this suite is safe to re-run
+indefinitely.
+
+- **mcp-1** (naming convention: `Registry::get_feature('tool-add-cct')` resolves and its
+  `get_name()`/`get_type()`/`get_id()` match the `{type}-{id}` convention): PASS.
+- **mcp-2** (`is_features_api_enabled()` reads the raw option directly, cross-checked by
+  re-deriving the same result manually from `get_option('jet-engine-misc-settings')`):
+  PASS.
+- **mcp-3** (re-check of the `agent_test_cct` table's column shape, still matches Test 1
+  below exactly): PASS.
+- **mcp-4** (re-check of query id 16's stored args, still matches Test 2 below): PASS —
+  **found one addendum**: the stored `order`/`args` rows also carry `_id`/`collapsed`/
+  `type` keys not previously documented in `SKILL.md`. Added as a non-breaking addendum
+  under "tool-add-query — verified live" rather than a correction (the previously
+  documented keys were all still present and correct).
+
+Test 4 (live creation of `tool-add-cpt`/`tool-add-taxonomy`/`tool-add-meta-box`/
+`tool-add-listing`/`tool-add-glossary`) remains not automated — each would create a new
+entity on every suite run, so it's left as a manual one-off task rather than part of the
+repeatable suite; see below for the original plan if picked up later.
+
 Validates claims in `SKILL.md`. Run against the sandbox site
 (`jackfruit.epeak.studio`, JetEngine MCP server + Code Snippets REST API — see
 `docs/code-snippets-rest-api.md` for the snippet-plugin gotchas, especially that

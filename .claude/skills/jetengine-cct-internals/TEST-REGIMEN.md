@@ -1,5 +1,24 @@
 # Test regimen: jetengine-cct-internals
 
+## Run log — 2026-07-16: runnable suite added, 3/3 pass
+
+Added `tests.php` (per `docs/test-harness-guide.md`), deployed as Code Snippets snippet
+id 29, run via `GET /agent-test/v1/suite/jetengine-cct-internals`. All 3 tests reuse
+existing fixtures (CCT `agent_test_cct`, relation id 17) rather than creating new ones;
+`cct-2` creates and deletes its own throwaway row each run so repeated runs stay clean.
+
+- **cct-1** (CCT table naming + `_ID` PK, read against fixture row `_ID` 2): PASS.
+- **cct-2** (`Item_Handler::update_item()`/`raw_delete_item()` full insert→update→delete
+  roundtrip, self-cleaning): PASS — supersedes the manually-executed Test 1/2 above with
+  an automated, repeatable version.
+- **cct-3** (no `get_relation($id)` method; `get_active_relations()` keyed by id; relation
+  17 resolves to a `Relation` object with `get_parents()`/`get_children()`): PASS.
+
+No bugs found this round — the source had already been read carefully enough (this
+skill's original write-up) that the tests confirmed rather than corrected anything.
+Test 3 and 4 below (media `value_format` behavior, CCT hook firing order) remain
+not-yet-automated — still open for a future pass, see below.
+
 Validates claims in `SKILL.md`. Run against the sandbox site (`jackfruit.epeak.studio`,
 JetEngine, confirmed by the site owner to be a test install, free to create real
 fixtures on). This skill previously had no `TEST-REGIMEN.md` at all — this file starts

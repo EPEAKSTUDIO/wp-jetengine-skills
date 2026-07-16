@@ -5,6 +5,31 @@ For each test: add the snippet, trigger the action, check the observable via the
 logging endpoint. Mark PASS/FAIL/UNCLEAR inline — a FAIL against a documented claim
 means the skill needs a correction, not a silent deletion.
 
+## Run log — 2026-07-16: runnable suite added, 3/3 pass
+
+Added `tests.php` (per `docs/test-harness-guide.md`), deployed as Code Snippets snippet
+id 34, run via `GET /agent-test/v1/suite/jetformbuilder-hooks`. Rather than re-doing a
+real form submission (already done manually below), these tests call
+`Action_Exception`/`Call_Hook_Action` directly within the REST request.
+
+- **hooks-1** (`is_success()` true only for the literal, case-sensitive string
+  `'success'`): PASS — sharpens Test 4 above with an exact rule instead of "depends on
+  construction."
+- **hooks-2** (`dynamic_success()`/`dynamic_error()` are the real mechanism for an
+  arbitrary custom message to still count as success/failure): PASS — **new finding**,
+  not previously named in `SKILL.md`; now documented in the gotchas section.
+- **hooks-3** (Call Hook's `do_action()` fires `custom-action/{hook}` then
+  `custom-filter/{hook}` with the exact `($request,$handler)`/`(true,$request,$handler)`
+  signatures and stores the filter's return in `response_data['hook_result']`, invoked
+  directly rather than via a real submission): PASS — automates Test 3 above without
+  needing a live form.
+
+Test 1 (after-send 2-arg signature, fires after DB save), Test 2 (per-action-type
+Condition-gating), and Test 5 (block vs. shortcode forms) remain verified only by the
+2026-07-15 manual curl-based run below, not re-automated — each needs either a real form
+submission or a Condition/legacy-shortcode fixture that doesn't exist as a safe,
+repeatable target yet.
+
 ## Run log — 2026-07-15, executed against jackfruit.epeak.studio
 
 **Important context:** the site named as "the sandbox" in this doc turned out to be a

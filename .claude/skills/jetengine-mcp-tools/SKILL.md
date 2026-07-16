@@ -4,10 +4,16 @@ description: Use when a JetEngine site exposes MCP tools (tool-add-cct, tool-add
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetEngine MCP Tools
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 4
+tests, `mcp-1` through `mcp-4`) per `docs/test-harness-guide.md` — 4/4 pass on first
+live run. One small addendum found (not a correction): the stored `order`/`args` rows
+documented below also carry `_id`/`collapsed`/`type` keys not previously mentioned — see
+the "verified live" note under `tool-add-query` and `TEST-REGIMEN.md`.
 
 JetEngine ships its own first-class "Features API" / MCP Tools layer
 (`includes/core/mcp-tools/` plus per-component `*/mcp/tool-add-*.php` files) — this is
@@ -142,6 +148,11 @@ about downstream.
   an `order` array of row objects. **If you're debugging "why doesn't my query_args
   input look like what's saved," this conversion is why — read back via
   `resource-get-configuration` to see the real stored shape, don't assume it round-trips.**
+  **Addendum (2026-07-16, live-verified via `tests.php` mcp-4):** each `order`/`args` row
+  also carries a generated `_id` (int), `collapsed` (bool, `false`), and `type` (empty
+  string `""`) key beyond the ones shown above — editor-UI bookkeeping fields, not
+  something you need to set yourself when building `query_args`, but expect them when
+  reading a stored query back.
 - The tool's own `date_warning` output field is a real, permanent hint (not
   conditional on whether you used a date) — it always fires, telling you dates should be
   stored/compared as timestamps. Treat it as a standing recommendation, not a signal

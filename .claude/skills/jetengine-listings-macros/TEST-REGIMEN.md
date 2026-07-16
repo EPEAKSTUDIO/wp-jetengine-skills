@@ -2,6 +2,33 @@
 
 Validates claims in `SKILL.md`. Run against the sandbox site (JetEngine 3.8.12).
 
+## Run log — 2026-07-16: runnable suite added, 5/5 pass, no listing fixture needed
+
+The 2026-07-15 blocker below (no listing grid on the sandbox, `tool-add-cct` fataling)
+turned out to be avoidable entirely: `jet_engine()->listings->macros->handler` is a real
+`\Crocoblock\Macros_Handler` instance reachable directly from any PHP context, and its
+public `register_macros()`/`do_macros()` methods can be called straight from a REST
+callback — no listing render, no page-builder, no browser needed. Added `tests.php`,
+deployed as Code Snippets snippet id 32, run via
+`GET /agent-test/v1/suite/jetengine-listings-macros`.
+
+- **macros-1** (plain `%macro%` resolves via `do_macros()`): PASS.
+- **macros-2** (pipe args are DROPPED if the macro class declares no `macros_args()`):
+  PASS — **this is a genuine finding**, not previously stated in `SKILL.md` (which didn't
+  pin down the no-schema-declared case for Test 1's pipe-arg variant). Now documented as
+  a callout in `SKILL.md`.
+- **macros-3** (pipe args map positionally when `macros_args()` IS declared): PASS —
+  confirms the exact positional-mapping mechanism.
+- **macros-4** (uppercase tag is a regex-level miss, callback never invoked — automates
+  Test 2 above): PASS.
+- **macros-5** (unregistered-but-valid tag is a registry-level miss, same literal output
+  — automates Test 3 above): PASS.
+
+Still not automated (both genuinely need a live listing render/page builder, can't be
+done via REST alone): Test 4 (context resolves to the current grid item, not global
+state), Test 5 (CCT rows resolve via `cct_slug` duck-typing), and Test 6 (Elementor/Bricks
+widget parity).
+
 ## Run log — 2026-07-15: BLOCKED, not executed
 
 Attempted against jackfruit.epeak.studio (turned out to be a live production BadgeIt/

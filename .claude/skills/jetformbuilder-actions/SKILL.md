@@ -4,10 +4,16 @@ description: Use when writing a fully custom JetFormBuilder action class (a PHP 
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetFormBuilder Custom Actions
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 3
+tests, `act-1` through `act-3`) per `docs/test-harness-guide.md` — 3/3 pass on first live
+run, no corrections needed. Unlike the 2026-07-15 manual run below (curl against a
+throwaway form), these tests call `Base`/`Action_Exception`/`Manager` directly — no form
+submission needed. See `TEST-REGIMEN.md`.
 
 How to write a real custom JetFormBuilder action type — a PHP class that shows up as a
 step in the form editor's action list, like the built-in "Insert Post" or "Redirect to
@@ -99,6 +105,15 @@ public function do_action( array $request, Action_Handler $handler ) {
 propagates to `after-send`). An empty-string message falls back to a generic `'failed'`
 status — `throw new Action_Exception()` with no args still fails the form, just with no
 specific message.
+
+**Pinned down exactly (2026-07-16, live-verified via `tests.php` act-2): `is_success()`
+is `true` only for the literal, case-sensitive string `'success'`** — any other message
+(`'custom_test_status'`, `'Success'` with a capital S, etc.) is `false`, not just
+"whatever seems truthy." To make an exception with an arbitrary custom message still
+count as success/failure, use `->dynamic_success()`/`->dynamic_error()` (both defined on
+the parent `Handler_Exception`) — these prefix the message (`'dsuccess|'`/`'derror|'`)
+so `Status_Info` classifies it via a registered "dynamic type" instead of the literal
+string, e.g. `throw ( new Action_Exception( 'promo code invalid' ) )->dynamic_error();`.
 
 ## `includes/actions/methods/` — a separate field-mapping framework (see also, not this skill)
 

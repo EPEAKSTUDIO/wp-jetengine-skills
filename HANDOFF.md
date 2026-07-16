@@ -44,10 +44,23 @@ a claim came from when triaging a failure.
 
 **When a test fails, work out whether the *test* is wrong or the *plugin behavior* is
 wrong before touching anything** — `docs/test-harness-guide.md`'s "Reading results" section
-is a 4-step procedure for this. Every bug found so far in this repo's four runnable
-suites was diagnosed this way (see `docs/audit-2026-07-16.md`'s "Fourth round"/"Fifth
-round" sections for the worked examples — wrong accessors, an overly-strict assertion,
-and one genuine site-crashing plugin landmine).
+is a 4-step procedure for this. Every bug found so far in this repo's runnable suites was
+diagnosed this way (see `docs/audit-2026-07-16.md`'s "Fourth round"/"Fifth round"
+sections for the worked examples — wrong accessors, an overly-strict assertion, and one
+genuine site-crashing plugin landmine).
+
+**Is `TEST-REGIMEN.md` still worth keeping once a skill has a `tests.php`?** Yes, but
+treat it as *the residual after automation*, not a parallel copy. `tests.php` is the
+automatable subset — anything assertable from PHP inside one request. `TEST-REGIMEN.md`
+should be trimmed down to whatever `tests.php` still can't cover: a real form submission
+through the browser, a page-builder/editor-UI visual check, a fixture that would create
+side effects if re-run automatically (e.g. `jetengine-mcp-tools`' Test 4 — live-creating
+a CPT/taxonomy/meta-box/listing/glossary every run isn't safe to automate), or a claim
+that genuinely needs human judgment. Once every runnable suite in this repo was added,
+each skill's `TEST-REGIMEN.md` got a "Run log" section added at the top noting exactly
+which of its manually-written tests got automated/superseded and which remain open for
+that reason — follow that same pattern for a new plugin's skills rather than duplicating
+the whole checklist into `tests.php`'s code comments.
 
 ## Current sandbox state (jackfruit.epeak.studio)
 
@@ -62,7 +75,7 @@ and one genuine site-crashing plugin landmine).
   self-service refresh flow documented here.
 - Code Snippets ids currently deployed and their purpose are fully inventoried in
   `docs/code-snippets-rest-api.md` — **id 22 is the shared harness core; never
-  deactivate it**, everything else (ids 23, 24, 27, 28 as of this writing) are per-skill
+  deactivate it**, everything else (ids 23, 24, 27-34 as of this writing) are per-skill
   suites that depend on it. Id 25 is a deactivated crash-reproduction diagnostic —
   documented on purpose, do not activate it or hit its route.
 - Plugins installed on the sandbox as of 2026-07-16: JetEngine, JetFormBuilder,
@@ -71,24 +84,29 @@ and one genuine site-crashing plugin landmine).
 
 ## What's done vs. still open
 
-**Runnable `tests.php` suites exist for 4 of 11 skills**: `jetengine-query-builder`
-(4/4 pass), `jetsmartfilters-query` (5/5 pass), `jetengine-modules` (6/6 pass),
-`jetformbuilder-fields` (7/7 pass). All four are currently green on the sandbox.
+**All 11 skills now have runnable `tests.php` suites, all currently green:**
+`jetengine-query-builder` (4/4), `jetsmartfilters-query` (5/5), `jetengine-modules`
+(6/6), `jetformbuilder-fields` (7/7), `jetengine-cct-internals` (3/3),
+`jetengine-relations` (6/6), `jetengine-mcp-tools` (4/4), `jetengine-listings-macros`
+(5/5), `jetformbuilder-actions` (3/3), `jetformbuilder-hooks` (3/3) — that's 10; the
+11th, `jetengine-router`, is a dispatch-only skill with no independent claims to test.
+46/46 assertions passing as of 2026-07-16. The 2026-07-16 round that added the last 6
+suites found zero plugin bugs but did surface two documentation additions (not
+corrections): `tool-add-query`'s stored rows carry undocumented `_id`/`collapsed`/`type`
+keys (`jetengine-mcp-tools`), and pipe-arg macro syntax (`%macro|foo,bar%`) is silently
+dropped unless the macro class declares a matching `macros_args()` schema
+(`jetengine-listings-macros`) — both now folded into their `SKILL.md`s.
 
-**Still pre-harness (no `tests.php` yet)**, verified only with one-off probe snippets
-before this convention existed: `jetengine-cct-internals`, `jetengine-relations`,
-`jetengine-mcp-tools`, `jetengine-listings-macros`, `jetformbuilder-actions`,
-`jetformbuilder-hooks`. Retrofitting these is the single most valuable next chunk of
-work — each one already has real fixtures documented in its `TEST-REGIMEN.md` and prior
-probe-snippet history in `docs/code-snippets-rest-api.md`'s inventory, so writing the
-`tests.php` version is mostly translating existing verified claims into
-`agent_test_assert()` calls, not re-investigating from scratch.
-
-Two smaller, self-contained gaps: `jetengine-modules`' Dynamic Visibility/Data Stores
-tests only check module-gating right now because neither module is activated on the
-sandbox (see that skill's `TEST-REGIMEN.md`); and `jetengine-modules`/`jetformbuilder-fields`
-mostly test reachability rather than full fixture-driven pipelines (real meta-box field
-groups, options pages, form submissions with repeaters don't exist yet).
+Two smaller, self-contained gaps remain: `jetengine-modules`' Dynamic Visibility/Data
+Stores tests only check module-gating right now because neither module is activated on
+the sandbox (see that skill's `TEST-REGIMEN.md`); and several suites (`jetengine-modules`,
+`jetformbuilder-fields`, `jetengine-mcp-tools`'s Test 4, `jetformbuilder-hooks`'
+Test 1/2/5, `jetformbuilder-actions`' Test 2/5) mostly test reachability/direct-invocation
+rather than full fixture-driven pipelines — real meta-box field groups, options pages,
+and end-to-end form submissions with repeaters/Conditions still need a browser or a
+one-off manual run, not something safe to bake into an auto-repeatable suite. Each
+affected skill's `TEST-REGIMEN.md` "Run log" section says exactly which of its original
+tests remain open for this reason.
 
 Full prioritized backlog (new skills to write, deeper gaps within existing ones):
 `docs/audit-2026-07-16.md`'s "Backlog" section at the bottom.
@@ -134,3 +152,16 @@ the easy way — Dynamic Visibility and Data Stores are optional modules, so
 `class_exists()` alone can't tell you "broken" from "just not turned on"; check the
 plugin's own activation-state accessor, if one exists, and assert on consistency between
 the two rather than assuming the class is always loaded).
+
+**A third lesson from the 2026-07-16 round (`jetformbuilder-actions`/`jetformbuilder-hooks`
+suites): a real end-to-end form/HTTP submission is often NOT actually required to test a
+"submission lifecycle" claim.** Before assuming a suite needs a live browser session or a
+throwaway form + curl POST (the pattern the original manual `TEST-REGIMEN.md` runs used),
+check whether the class the claim is about is directly instantiable/callable within a
+single PHP request — e.g. `Action_Exception`/`Status_Info`'s success/status wiring, or
+`Call_Hook_Action::do_action()` (its `$settings` property is public, so it can be set and
+invoked directly with a fake `$request` array), don't need any submission at all.
+Reserve "needs a real submission" for claims that genuinely depend on the full request
+lifecycle (firing order across multiple hooks, Condition-gating, DB record timing) — and
+say so explicitly in `TEST-REGIMEN.md` when a claim is left unautomated for that reason,
+rather than leaving it silently unaddressed.

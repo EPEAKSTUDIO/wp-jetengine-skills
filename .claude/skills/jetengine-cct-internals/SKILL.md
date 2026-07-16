@@ -4,10 +4,14 @@ description: Use when writing PHP that reads OR writes JetEngine Custom Content 
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # JetEngine CCT & Relations Internals
+
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 3
+tests, `cct-1` through `cct-3`) per `docs/test-harness-guide.md` — 3/3 pass on first
+live run, no corrections needed. See `TEST-REGIMEN.md` for the run log.
 
 Practical, verified facts about how JetEngine stores and links Custom Content Type (CCT)
 data, gathered by building a real endpoint that replaced several chained REST calls with
