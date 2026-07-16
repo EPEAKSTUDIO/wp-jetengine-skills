@@ -131,4 +131,98 @@ add_action( 'agent-test/run-suite/jetengine-relations', function() {
 		agent_test_assert( $suite, 'rel-6', 'relation storage table smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// rel-7: relation/update/before and relation/update/after actually fire during a real
+	// update() call, with the documented arg shapes. Self-cleaning (removes the link it
+	// creates, same as rel-2).
+	try {
+		$manager  = function_exists( 'jet_engine' ) ? jet_engine()->relations : null;
+		$relation = $manager ? $manager->get_active_relations( 17 ) : null;
+		$parent_id = 1;
+		$child_id  = 2;
+
+		$before_args = null;
+		$after_args  = null;
+		if ( $relation ) {
+			add_action( 'jet-engine/relation/update/before', function( $p, $c, $rel_obj ) use ( &$before_args ) {
+				$before_args = array( 'parent' => $p, 'child' => $c, 'is_relation_obj' => is_a( $rel_obj, '\\Jet_Engine\\Relations\\Relation' ) );
+			}, 10, 3 );
+			add_action( 'jet-engine/relation/update/after', function( $p, $c, $item_id, $rel_obj ) use ( &$after_args ) {
+				$after_args = array( 'parent' => $p, 'child' => $c, 'item_id' => $item_id, 'is_relation_obj' => is_a( $rel_obj, '\\Jet_Engine\\Relations\\Relation' ) );
+			}, 10, 4 );
+			$row = $relation->update( $parent_id, $child_id );
+			remove_all_actions( 'jet-engine/relation/update/before' );
+			remove_all_actions( 'jet-engine/relation/update/after' );
+			$relation->delete_rows( $parent_id, $child_id ); // cleanup
+		}
+
+		$pass = is_array( $before_args ) && (int) $before_args['parent'] === $parent_id && (int) $before_args['child'] === $child_id && $before_args['is_relation_obj']
+			&& is_array( $after_args ) && (int) $after_args['parent'] === $parent_id && (int) $after_args['child'] === $child_id && $after_args['is_relation_obj']
+			&& isset( $row['_ID'] ) && (string) $after_args['item_id'] === (string) $row['_ID'];
+
+		agent_test_assert(
+			$suite, 'rel-7',
+			'SKILL.md "Reacting to a link write": relation/update/before (3 args: parent, child, relation) and relation/update/after (4 args: parent, child, item_id, relation) both fire on a real update() call, item_id matching the returned row\'s _ID',
+			$pass,
+			array( 'before_fired_with_right_args' => true, 'after_fired_with_right_args' => true, 'item_id_matches_row' => true ),
+			array( 'before_args' => $before_args, 'after_args' => $after_args, 'row_id' => $row['_ID'] ?? null ),
+			'includes/components/relations/relation.php:1462 (before), :1537 (after) — driven live against relation 17, link removed after assertion'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'rel-7', 'relation/update/before+after live hook test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// rel-8: Sources system — get_id_by_source() with a key not in its built-in switch
+	// falls through to the dynamic jet-engine/relations/object-id-by-source/{key} filter.
+	try {
+		$sources = function_exists( 'jet_engine' ) ? jet_engine()->relations->sources : null;
+		$seen_var = null;
+		if ( $sources ) {
+			add_filter( 'jet-engine/relations/object-id-by-source/agent_test_source', function( $default, $var ) use ( &$seen_var ) {
+				$seen_var = $var;
+				return 12345;
+			}, 10, 2 );
+		}
+		$result = $sources ? $sources->get_id_by_source( 'agent_test_source', 'agent_test_var' ) : null;
+		if ( $sources ) {
+			remove_all_filters( 'jet-engine/relations/object-id-by-source/agent_test_source' );
+		}
+		$pass = ( 12345 === $result ) && ( 'agent_test_var' === $seen_var );
+		agent_test_assert(
+			$suite, 'rel-8',
+			'SKILL.md "Resolving an object id from context": get_id_by_source() falls through to jet-engine/relations/object-id-by-source/{source} for any key not in its built-in switch, passing $var through as the 2nd filter arg',
+			$pass,
+			array( 'result' => 12345, 'var_passed_through' => 'agent_test_var' ),
+			array( 'result' => $result, 'seen_var' => $seen_var ),
+			'includes/components/relations/sources.php:57-121'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'rel-8', 'Sources object-id-by-source fallback test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// rel-9: raw-relations filter and the posts-type get-items filter are only ever
+	// applied at CCT/relations registration time on `init` (raw-relations) or at
+	// admin-UI-picker render time (get-items) — neither can be usefully re-triggered
+	// mid-request the way rel-7/rel-8's hooks can. Source-presence check only.
+	try {
+		$file = WP_PLUGIN_DIR . '/jet-engine/includes/components/relations/manager.php';
+		$contents = file_exists( $file ) ? file_get_contents( $file ) : '';
+		$has_raw_relations = false !== strpos( $contents, "apply_filters( 'jet-engine/relations/raw-relations'" );
+
+		$file2 = WP_PLUGIN_DIR . '/jet-engine/includes/components/relations/types/posts.php';
+		$contents2 = file_exists( $file2 ) ? file_get_contents( $file2 ) : '';
+		$has_get_items = false !== strpos( $contents2, "apply_filters( 'jet-engine/relations/types/posts/get-items'" );
+
+		$pass = ( '' !== $contents ) && $has_raw_relations && ( '' !== $contents2 ) && $has_get_items;
+		agent_test_assert(
+			$suite, 'rel-9',
+			'SKILL.md "there IS a way to register a relation" / "Custom post-picker items": raw-relations filter (manager.php) and types/posts/get-items filter (types/posts.php) both present in live plugin source',
+			$pass,
+			array( 'raw_relations_present' => true, 'posts_get_items_present' => true ),
+			array( 'raw_relations_present' => $has_raw_relations, 'posts_get_items_present' => $has_get_items ),
+			'includes/components/relations/manager.php:357-358, types/posts.php:112 — source-presence check, both fire outside a normal REST-request lifecycle'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'rel-9', 'raw-relations / posts get-items presence smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

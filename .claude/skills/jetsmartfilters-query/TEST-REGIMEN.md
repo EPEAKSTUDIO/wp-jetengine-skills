@@ -56,6 +56,39 @@ corrected facts; see `docs/test-harness-guide.md`'s "is the plugin wrong, or is 
 test wrong" section — all three of these were **test/documentation bugs**, not
 JetSmartFilters behavior changes.
 
+## Run log — 2026-07-16 (addendum): final-query worked examples + cross-plugin hook added, 7/7 pass
+
+New `SKILL.md` subsection under "The pipeline" with real `final-query` before/after
+examples (range-splitting, `|search`-suffix stripping) plus a newly-documented
+cross-plugin hook, `jet-engine/query-builder/filters/before-after-props` — sourced from
+real Codelab snippets. **jsf-6** calls `get_query_from_request()` directly with a
+registered `final-query` filter and confirms the filter's mutation is present in the
+returned array — PASS, proves the hook is genuinely honored, not just documented as
+existing. **jsf-7** is a source-presence check only (live file read against the
+installed JetEngine plugin) for the `before-after-props` hook — actually triggering it
+needs a live JetSmartFilters AJAX request against a real Query Builder query, which no
+fixture on this sandbox provides yet; still open for a future session with that fixture.
+
+## Run log — 2026-07-16 (second addendum): 5 more filters + JS event bus added, 9/9 pass
+
+New `SKILL.md` sections ("More render-time and admin-editor filters", "The front-end JS
+event bus") sourced from real Codelab/Gist snippets found auditing Crocoblock's public
+GitHub Gists account (305 gists; see repo `HANDOFF.md`). **jsf-8** drives
+`jet-smart-filters/query/meta-query-row` live via the same safe technique as jsf-6 —
+feeding `get_query_from_request()` a crafted `_meta_query_{key}` request array and
+confirming the filter sees the right per-clause row — PASS, proves the hook is genuinely
+honored. **jsf-9** is a source-presence check only for the four remaining PHP filters
+(`filter-instance/args`, `filters/filter-options`, `range/source-callbacks`,
+`post-type/meta-fields-settings`) plus the six JS event-bus channel name strings
+(`ajaxFilters/updated`, `start-loading`, `end-loading`, `pagination/change`,
+`fiter/change`, `fiter/apply` — note the real "fiter" typo, verified as a literal
+substring in the shipped `public.js` bundle) — deliberately not live-triggered, since
+constructing a real `Filter_Instance`/filter-type object directly risks the same class
+of fatal `jsf-3`'s "Cannot redeclare class" landmine exposed for `Storage\Controller`
+(filter-type classes assume a fully-configured filter post exists).
+
+**Final result: 9/9 pass**, no fixes needed this round.
+
 ## Prerequisites
 
 - A page with a JetEngine listing grid and a checkboxes filter (taxonomy-sourced) and

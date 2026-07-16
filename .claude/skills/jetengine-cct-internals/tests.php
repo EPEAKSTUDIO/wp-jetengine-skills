@@ -88,4 +88,105 @@ add_action( 'agent-test/run-suite/jetengine-cct-internals', function() {
 		agent_test_assert( $suite, 'cct-3', 'Relations manager accessor smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// cct-4: CSV export filters exist in the currently-installed plugin source.
+	// Not invoked directly: Export::send_items() ends in Jet_Engine_Tools::file_download(),
+	// which sends headers and exit()s — unsafe to call from inside this REST request. Instead
+	// confirm the two filter names/call sites are still present in the live plugin file, so a
+	// plugin update silently removing/renaming them would be caught here.
+	try {
+		$file = WP_PLUGIN_DIR . '/jet-engine/includes/modules/custom-content-types/inc/export.php';
+		$contents = file_exists( $file ) ? file_get_contents( $file ) : '';
+		$has_export_value_filter = false !== strpos( $contents, "apply_filters( 'jet-engine/custom-content-types/export/value'" );
+		$has_separator_filter    = false !== strpos( $contents, "apply_filters( 'jet-engine/custom-content-types/export/cvs-separator'" );
+		$pass = ( '' !== $contents ) && $has_export_value_filter && $has_separator_filter;
+		agent_test_assert(
+			$suite, 'cct-4',
+			'SKILL.md "Reformatting a field\'s value during CSV export": Export::send_items() applies jet-engine/custom-content-types/export/value per cell and the separately-named jet-engine/custom-content-types/export/cvs-separator (note: "cvs" not "csv") for the column separator',
+			$pass,
+			array( 'file_readable' => true, 'export_value_filter_present' => true, 'cvs_separator_filter_present' => true ),
+			array( 'file_readable' => ( '' !== $contents ), 'export_value_filter_present' => $has_export_value_filter, 'cvs_separator_filter_present' => $has_separator_filter ),
+			'includes/modules/custom-content-types/inc/export.php:70,91 — verified via live source-grep since send_items() cannot be safely invoked from within this request (ends in an exiting file_download() call)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'cct-4', 'CCT export filters presence smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// cct-5: user-has-access and item-to-update filters actually fire and their return
+	// value is honored — both are evaluated fresh on every call (unlike raw-fields/
+	// admin-columns, which only run once at CCT registration on `init`).
+	try {
+		$factory = class_exists( '\\Jet_Engine\\Modules\\Custom_Content_Types\\Module' )
+			? \Jet_Engine\Modules\Custom_Content_Types\Module::instance()->manager->get_content_types( 'agent_test_cct' )
+			: false;
+
+		$forced_denied = null;
+		if ( $factory ) {
+			add_filter( 'jet-engine/custom-content-types/user-has-access', function( $allow, $f ) use ( &$forced_denied ) {
+				$forced_denied = ( $f->get_arg( 'slug' ) === 'agent_test_cct' );
+				return false;
+			}, 10, 2 );
+			$access_result = $factory->user_has_access();
+			remove_all_filters( 'jet-engine/custom-content-types/user-has-access' );
+		} else {
+			$access_result = null;
+		}
+
+		$handler = $factory ? $factory->get_item_handler() : null;
+		$seen_fields = null;
+		$mutated_id  = null;
+		if ( $handler ) {
+			add_filter( 'jet-engine/custom-content-types/item-to-update', function( $item, $fields, $ih ) use ( &$seen_fields ) {
+				$seen_fields = $fields;
+				$item['title'] = 'AGENT TEST item-to-update mutated';
+				return $item;
+			}, 10, 3 );
+			$mutated_id = $handler->update_item( array( 'title' => 'AGENT TEST original title', 'status' => 'draft' ) );
+			remove_all_filters( 'jet-engine/custom-content-types/item-to-update' );
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'jet_cct_agent_test_cct';
+		$row = ( is_numeric( $mutated_id ) && ! is_wp_error( $mutated_id ) )
+			? $wpdb->get_row( $wpdb->prepare( "SELECT title FROM {$table} WHERE _ID = %d", $mutated_id ), ARRAY_A )
+			: null;
+		if ( is_numeric( $mutated_id ) && ! is_wp_error( $mutated_id ) ) {
+			$handler->raw_delete_item( $mutated_id );
+		}
+
+		$pass = ( false === $access_result ) && ( true === $forced_denied )
+			&& is_array( $seen_fields )
+			&& $row && 'AGENT TEST item-to-update mutated' === $row['title'];
+
+		agent_test_assert(
+			$suite, 'cct-5',
+			'SKILL.md "Gating access...": user-has-access filter overrides Factory::user_has_access() result (2 args: allow, factory); item-to-update filter (3 args: item, fields, item_handler) can rewrite the item array before it\'s persisted',
+			$pass,
+			array( 'user_has_access_forced_false' => true, 'factory_arg_seen' => true, 'item_to_update_mutation_persisted' => true ),
+			array( 'access_result' => $access_result, 'forced_denied_saw_right_factory' => $forced_denied, 'seen_fields_is_array' => is_array( $seen_fields ), 'row_after_mutation' => $row ),
+			'includes/modules/custom-content-types/inc/factory.php:128-134, inc/item-handler.php:397 — driven live via agent_test_cct fixture, row self-deletes after assertion'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'cct-5', 'user-has-access / item-to-update live filter test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// cct-6: raw-fields and admin-columns filters only fire once at CCT registration
+	// (on `init`), so they can't be re-triggered by adding a filter mid-request the way
+	// cct-5's filters can. Source-presence check only, same rationale as cct-4.
+	try {
+		$file = WP_PLUGIN_DIR . '/jet-engine/includes/modules/custom-content-types/inc/factory.php';
+		$contents = file_exists( $file ) ? file_get_contents( $file ) : '';
+		$has_raw_fields    = false !== strpos( $contents, "apply_filters( 'jet-engine/custom-content-types/factory/raw-fields'" );
+		$has_admin_columns = false !== strpos( $contents, "'jet-engine/custom-content-types/admin-columns'" );
+		$pass = ( '' !== $contents ) && $has_raw_fields && $has_admin_columns;
+		agent_test_assert(
+			$suite, 'cct-6',
+			'SKILL.md "Gating access...": factory/raw-fields and admin-columns filters present in Factory (fire once at registration, not re-triggerable mid-request)',
+			$pass,
+			array( 'file_readable' => true, 'raw_fields_present' => true, 'admin_columns_present' => true ),
+			array( 'file_readable' => ( '' !== $contents ), 'raw_fields_present' => $has_raw_fields, 'admin_columns_present' => $has_admin_columns ),
+			'includes/modules/custom-content-types/inc/factory.php:39,850-854 — source-presence check; both filters only apply during CCT registration on init'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'cct-6', 'raw-fields / admin-columns presence smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

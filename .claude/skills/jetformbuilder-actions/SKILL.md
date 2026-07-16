@@ -4,15 +4,15 @@ description: Use when writing a fully custom JetFormBuilder action class (a PHP 
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
 # JetFormBuilder Custom Actions
 
-**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 3
-tests, `act-1` through `act-3`) per `docs/test-harness-guide.md` — 3/3 pass on first live
-run, no corrections needed. Unlike the 2026-07-15 manual run below (curl against a
-throwaway form), these tests call `Base`/`Action_Exception`/`Manager` directly — no form
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 5
+tests, `act-1` through `act-5`) per `docs/test-harness-guide.md` — 5/5 pass. Unlike the
+2026-07-15 manual run below (curl against a throwaway form), these tests call
+`Base`/`Action_Exception`/`Manager` directly — no form
 submission needed. See `TEST-REGIMEN.md`.
 
 How to write a real custom JetFormBuilder action type — a PHP class that shows up as a
@@ -123,6 +123,115 @@ map submitted fields to WP object properties themselves — they delegate to
 framework for building a "map fields to object properties" editor UI. A minimal custom
 action (the redirect-to-page pattern above) never touches this. Only reach for it if
 you're building something that needs the same kind of field-mapping UI as Insert Post.
+
+## Adding a custom Insert/Update Post "object property" — the real extension point for that field-mapping framework
+
+The previous section says the `Abstract_Modifier` field-mapping framework is "see also,
+not this skill" — but extending its **property list** is a genuinely common real-world
+task (confirmed across many Codelab/Gist snippets: custom Post Slug, Post Password,
+Menu Order, and Scheduled-Publish-Date properties for the Insert/Update Post action), so
+it's documented here rather than left as an unexplained gap.
+
+`Post_Modifier::get_properties()` (`modules/actions-v2/insert-post/properties/post-modifier.php:33-55`)
+returns the list every Insert/Update Post action step maps fields against
+(`Post_Id_Property`, `Post_Title_Property`, `Post_Status_Property`, `Post_Meta_Property`,
+`Post_Terms_Property`, etc.), wrapped in:
+
+```php
+apply_filters( 'jet-form-builder/post-modifier/object-properties', new Object_Properties_Collection( [...] ) )
+```
+
+**`jet-form-builder/post-modifier/object-properties`** (filter, 1 arg: the
+`Object_Properties_Collection`) is the real, public way to add a new mappable property —
+call `->add( new My_Property() )` on the collection (a plain `Collection` method,
+confirmed at `includes/classes/arrayable/collection.php:77` — not `push()`, which
+doesn't exist on this class) and return it. A sibling filter,
+**`jet-form-builder/post-modifier/object-actions`** (`post-modifier.php:57-60`), extends
+the separate list of post-level *actions* (not properties) the same way.
+
+A custom property class extends `\Jet_Form_Builder\Actions\Methods\Base_Object_Property`
+(abstract: `get_label()`; `get_id()` comes from the `Collection_Item_Interface` contract)
+— in practice, every real-world example found extends a concrete existing property
+(commonly `Post_Title_Property`) rather than the abstract base directly, since that
+picks up `get_id()`/other boilerplate for free and only needs overriding what's actually
+different:
+
+```php
+class My_Post_Slug_Property extends \JFB_Modules\Actions_V2\Insert_Post\Properties\Post_Title_Property {
+    public function get_id(): string { return 'post_name'; }
+    public function get_label(): string { return __( 'Post Slug' ); }
+    public function do_after( \Jet_Form_Builder\Actions\Methods\Abstract_Modifier $modifier ) {
+        // runs after the value is set — e.g. wp_update_post() to apply a computed slug
+    }
+}
+
+add_filter( 'jet-form-builder/post-modifier/object-properties', function( $properties ) {
+    $properties->add( new My_Post_Slug_Property() );
+    return $properties;
+} );
+```
+
+`Base_Object_Property::do_before( $key, $value, $modifier )` / `do_after( $modifier )`
+(`includes/actions/methods/base-object-property.php:46,50`) are the two hook points on
+the property itself — `do_before()` runs when the field value is first attached (default
+just stores it on `$this->value`), `do_after()` runs later, once the underlying object
+exists (e.g. after `wp_insert_post()` — the right place for anything needing the new
+post's real ID, like scheduling a future-publish `wp_schedule_single_event()` or writing
+a computed value back via `$modifier->get_action()->get_inserted()`).
+
+## Action conditions — gating whether an action step runs at all
+
+Distinct from field validation and from the action's own success/failure logic: every
+action can carry a `conditions` array + `condition_operator` (`'and'`/`'or'`) in its
+editor settings (`$props['conditions']`, `$props['condition_operator']`) — the "Conditions"
+panel on an action step in the form editor. `Action_Handler::process_single_action()`
+builds one `Condition_Manager` per action id
+(`includes/actions/action-handler.php:530-538`) and calls
+`get_current_condition_manager()->check_all()` (`action-handler.php:206`) before running
+the action's `do_action()`; a failed condition throws `Condition_Exception`, which skips
+that action (does not fail the whole form) — see `condition-manager.php:115-142`.
+
+The built-in operators (`equal`, `greater`, `less`, `between`, `one_of`, `contain`) are
+checked in `Condition_Instance::check()`
+(`includes/actions/conditions/condition-instance.php:231-259`) via a plain `switch`. If
+none of those match, `check()` falls through to
+`apply_filters( 'jet-form-builder/actions/process-condition', false, $this )`
+(`condition-instance.php:257`) — **this is the extension point for a custom operator's
+comparison logic**, receiving the `Condition_Instance` itself so you can call
+`->get_operator()`, `->get_compare_as_array()`/`->get_compare()`, and
+`->get_field_value()` (reads via `jet_fb_context()->get_value()`).
+
+Registering a new operator name (so it shows up in the editor's operator dropdown) is a
+**separate** filter — `jet-form-builder/register/action-condition-settings`
+(`condition-manager.php:196-199`), which receives/returns the whole settings array
+(`operators`, `compare_value_formats`, etc., default shape at `condition-manager.php:25-86`)
+— append to `$settings['operators']`, with `'need_explode' => true` on the operator entry
+if its compare value should be parsed as a comma-separated list
+(`get_compare_as_array()`) rather than a scalar:
+
+```php
+add_filter( 'jet-form-builder/register/action-condition-settings', function( $settings ) {
+    $settings['operators'][] = array(
+        'label'        => 'Contains any',
+        'value'        => 'contains_any',
+        'need_explode' => true,
+    );
+    return $settings;
+} );
+
+add_filter( 'jet-form-builder/actions/process-condition', function( $result, $condition ) {
+    if ( 'contains_any' !== $condition->get_operator() ) {
+        return $result;
+    }
+    $field = (array) $condition->get_field_value();
+    return (bool) array_intersect( $field, $condition->get_compare_as_array() );
+}, 10, 2 );
+```
+
+Both filters are needed together — registering only the operator name makes it
+selectable but silently `false` (falls through the `switch` default with no matching
+custom logic); registering only the `process-condition` filter without adding the
+operator name means the editor never offers it.
 
 ## Gotchas
 

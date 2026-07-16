@@ -24,6 +24,33 @@ to the single PHP request).
 Test 2 (repeater-field `$request` shape) and Test 5 (registration timing, `init`
 priority 99) remain not automated — both still need a real form submission, see below.
 
+## Run log — 2026-07-16 (addendum): Action Conditions system added, 4/4 pass
+
+New `SKILL.md` section "Action conditions — gating whether an action step runs at all",
+sourced from the official Crocoblock dev-docs / Codelab audit (not previously covered by
+any of the three JFB skills). **act-4** registers a custom operator via
+`jet-form-builder/register/action-condition-settings`, hooks
+`jet-form-builder/actions/process-condition`, and drives a real `Condition_Manager`
+end-to-end (`set_conditions()` → `check_all()`) against a field value written through
+`jet_fb_context()->update_request()` — PASS, confirms both filters and the
+skip-vs-fail-the-whole-form semantics (`Condition_Exception` only skips that one action).
+
+## Run log — 2026-07-16 (second addendum): post-modifier object-properties extension point added, 5/5 pass
+
+New `SKILL.md` section "Adding a custom Insert/Update Post 'object property'", sourced
+from real Codelab/Gist snippets (custom Post Slug, Post Password, Menu Order, and
+Scheduled-Publish-Date properties — all following the same pattern) found auditing
+Crocoblock's public GitHub Gists account (305 gists; see repo `HANDOFF.md`).
+**act-5** drives `jet-form-builder/post-modifier/object-properties` directly (not a full
+form submission) with a real `Object_Properties_Collection`, confirming a registered
+custom `Base_Object_Property` subclass is retrievable via `has_by_id()`/`get_by_id()` —
+PASS. **Caught before deploy**: the first draft of the `SKILL.md` example used
+`$properties->push(new ...)`, but `Object_Properties_Collection`/`Collection` has no
+`push()` method — the real method is `add()` (confirmed at
+`includes/classes/arrayable/collection.php:77`); fixed before ever writing the test.
+
+**Final result: 5/5 pass**, one doc bug caught and fixed pre-deploy.
+
 ## Test 1: minimal custom action registers and appears in the editor
 
 **Claim:** hooking `jet-form-builder/actions/register` and calling

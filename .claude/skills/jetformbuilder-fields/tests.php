@@ -154,4 +154,41 @@ add_action( 'agent-test/run-suite/jetformbuilder-fields', function() {
 		agent_test_assert( $suite, 'jfb-7', 'Preset_Manager/Base_Preset reachability smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// jfb-8: media-field guest-upload gate — jet-form-builder/media-field/before-upload fires
+	// with the Media_Field_Parser itself, and its get_context()->allow_for_guest()/
+	// update_setting() (both on Parser_Context) are real, callable methods that mutate the
+	// parser's own settings. Doesn't invoke get_response() itself (that needs a real uploaded
+	// file) — confirms the hook fires and the two context methods it's documented to call work.
+	try {
+		if ( ! class_exists( '\\JFB_Modules\\Block_Parsers\\Fields\\Media_Field_Parser' ) ) {
+			throw new \Exception( 'Media_Field_Parser not loaded' );
+		}
+		$parser = new \JFB_Modules\Block_Parsers\Fields\Media_Field_Parser();
+		$parser->set_context( new \Jet_Form_Builder\Request\Parser_Context() ); // get_context() requires this to be set first — field-data-parser.php:181
+		$has_get_context = method_exists( $parser, 'get_context' );
+		$ctx = $has_get_context ? $parser->get_context() : null;
+		$has_context_methods = $ctx && method_exists( $ctx, 'allow_for_guest' ) && method_exists( $ctx, 'update_setting' );
+
+		$fired_with_parser = null;
+		add_action( 'jet-form-builder/media-field/before-upload', function( $p ) use ( &$fired_with_parser ) {
+			$fired_with_parser = get_class( $p );
+			$p->get_context()->allow_for_guest();
+			$p->get_context()->update_setting( 'value_format', 'id' );
+		} );
+		do_action( 'jet-form-builder/media-field/before-upload', $parser );
+
+		$pass = $has_get_context && $has_context_methods && ( 'JFB_Modules\\Block_Parsers\\Fields\\Media_Field_Parser' === $fired_with_parser );
+
+		agent_test_assert(
+			$suite, 'jfb-8',
+			'SKILL.md "Media field: guest uploads are blocked by default": jet-form-builder/media-field/before-upload fires with the Media_Field_Parser instance itself, and $parser->get_context()->allow_for_guest()/update_setting() are real callable methods on Parser_Context',
+			$pass,
+			array( 'has_get_context' => true, 'has_context_methods' => true, 'hook_fired_with' => 'JFB_Modules\\Block_Parsers\\Fields\\Media_Field_Parser' ),
+			array( 'has_get_context' => $has_get_context, 'has_context_methods' => $has_context_methods, 'hook_fired_with' => $fired_with_parser ),
+			'modules/block-parsers/fields/media-field-parser.php:48 (before-upload), modules/block-parsers/field-data-parser.php:240 (get_context()), modules/block-parsers/parser-context.php:384,401 (update_setting()/allow_for_guest())'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'jfb-8', 'media-field before-upload hook smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

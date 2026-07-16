@@ -4,14 +4,14 @@ description: Use when working with JetEngine listing grid/item dynamic field mac
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
 # JetEngine Listings Macros
 
-**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 5
-tests, `macros-1` through `macros-5`) per `docs/test-harness-guide.md` — 5/5 pass on
-first live run. **One real finding** beyond what was previously documented: pipe-arg
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 7
+tests, `macros-1` through `macros-7`) per `docs/test-harness-guide.md` — 7/7 pass.
+**One real finding** beyond what was previously documented: pipe-arg
 syntax (`%macro|foo,bar%`) is silently dropped unless the macro class declares a matching
 `macros_args()` schema — see the new callout under "Registering a custom macro" and
 `TEST-REGIMEN.md`.
@@ -103,6 +103,37 @@ add_action( 'jet-engine/register-macros', function() {
 } );
 ```
 
+## Subclassing a built-in macro instead of the abstract base
+
+A real, worked pattern distinct from the Woo example above: extending a **built-in**
+macro class to override its behavior, rather than `Jet_Engine_Base_Macros` directly.
+`Query_Results_Macro` (`includes/components/query-builder/macros/query-results.php`,
+tag `query_results`) is the shipped `%query_results%` macro — its `macros_callback()`
+ends with `$items = array_filter( $items ); return ! empty( $items ) ? $items : false;`
+(`query-results.php:124-126`), which **drops falsy entries** (`0`, `''`, `null`) from the
+result list, including legitimate zero-value fields. To keep those, subclass the real
+class and override just `macros_callback()`:
+
+```php
+class Query_Results_Macro_Keep_Empty extends \Jet_Engine\Query_Builder\Macros\Query_Results_Macro {
+    public function macros_tag() { return 'query_results_keep_empty'; }
+    public function macros_callback( $args = array() ) {
+        // re-implement, or call parent logic before its final array_filter() and skip that step
+    }
+}
+
+add_action( 'jet-engine/register-macros', function() {
+    new Query_Results_Macro_Keep_Empty();
+}, 11 ); // after the default priority so the built-in Query_Results_Macro class is already loaded to extend
+```
+
+**Register at a priority later than the default** (11+) — the built-in macro classes
+are themselves instantiated on `jet-engine/register-macros` at the default priority
+(10), so a subclass extending one of them needs the parent class already loaded/`class_exists()`-safe.
+`Manager::instance()->get_query_by_id( $query_id )` (used inside `macros_callback()`
+above) is the same Query Builder accessor documented in `jetengine-query-builder` —
+confirms that accessor path from a second, independent call site.
+
 ## Context: what data a macro callback can access
 
 `macros_callback( $args = [] )` does **not** receive post/CCT data directly — call
@@ -117,6 +148,54 @@ render object). Outside a JetEngine listing render entirely, it falls back furth
 `do_macros( $string, $field_value )` also threads a second value —
 the raw dynamic-field value being processed — through to the callback as its first
 callback param, separate from the context object.
+
+## Registering a custom "context" — extending `get_object_by_context()` itself
+
+Distinct from registering a macro: this extends the **context-resolution system** a
+macro's `set_macros_context()`/`get_object_by_context()` call (documented above) relies
+on — real, worked examples found in Codelab/Gist snippets, confirmed against
+`includes/components/listings/data.php:862-898` and `includes/components/listings/manager.php:548-558`.
+
+`Data::get_object_by_context( $context )` is a `switch` over ~7 built-in context keys
+(`default_object`, `wp_user`, `current_user`, `queried_user`, `current_post_author`,
+`wp_object`, `parent_object`) that **falls through to a dynamic filter for anything
+else**:
+
+```php
+default:
+    return apply_filters( 'jet-engine/listings/data/object-by-context/' . $context, null );
+```
+
+So adding a brand-new context is a two-part registration, same "two filters, both
+required" shape as the Meta Boxes Options Source pairing in `jetengine-modules`:
+
+1. **`jet-engine/listings/allowed-context-list`** (filter, 1 arg: `$context` assoc array
+   `key => label`) — `manager.php:550` — makes the new key selectable in the
+   Elementor/Blocks/Bricks widget's "Object context" dropdown. JetEngine's own Relations
+   and CCT modules register their own extra context keys through this exact filter
+   (`relations/relation.php:80`, `custom-content-types/inc/listings/context.php:19`,
+   `.../inc/single-item-factory.php:38`) — not a special internal mechanism, the same
+   public hook available to any snippet.
+2. **`jet-engine/listings/data/object-by-context/{your_key}`** (filter, 1 arg: `null`
+   default) — resolves the key to an actual object (a `WP_Post`/`WP_Term`/`WP_User`/CCT
+   row, whatever a macro or dynamic field expects as "current object").
+
+```php
+add_filter( 'jet-engine/listings/allowed-context-list', function( $context ) {
+    $context['post_featured_image'] = __( 'Post Featured Image' );
+    return $context;
+} );
+add_filter( 'jet-engine/listings/data/object-by-context/post_featured_image', function( $default ) {
+    $current = jet_engine()->listings->data->get_current_object();
+    $thumb_id = ( $current instanceof \WP_Post ) ? get_post_thumbnail_id( $current ) : false;
+    return $thumb_id ? get_post( $thumb_id ) : $default;
+} );
+```
+
+Registering only the `allowed-context-list` entry makes the option selectable but
+resolves to `null` at render time (nothing implements it); registering only the
+`object-by-context` filter without the list entry means the admin UI never offers it as
+a choice — same failure mode as the Options Source pairing.
 
 ## Why a macro prints literally instead of resolving
 

@@ -38,13 +38,17 @@ new skills are welcome — feel free to open a PR.
   config is actually stored, bulk-fetching without N+1 queries, the "Connect Relation Items" JetFormBuilder action,
   and the public Relations REST API.
 - [`jetformbuilder-hooks`](.claude/skills/jetformbuilder-hooks/SKILL.md) — the submission lifecycle (hook names,
-  firing order, arg counts) and the "Call Hook" action for running custom PHP without a full custom action class.
+  firing order, arg counts), the "Call Hook" action for running custom PHP without a full custom action class, and
+  the `default-process-event/executors` filter that gates which actions actually run.
 - [`jetformbuilder-actions`](.claude/skills/jetformbuilder-actions/SKILL.md) — writing a fully custom JetFormBuilder
-  action class: base class, registration, reading field values, success/failure signaling.
+  action class (base class, registration, reading field values, success/failure signaling) plus the Action
+  Conditions system for gating whether a step runs at all.
 - [`jetsmartfilters-query`](.claude/skills/jetsmartfilters-query/SKILL.md) — how JetSmartFilters turns a filter
-  selection into a tax_query/meta_query, the AJAX filtering endpoint, and registering custom filter types/providers.
+  selection into a tax_query/meta_query, the AJAX filtering endpoint, registering custom filter types/providers, and
+  worked `final-query` examples including a cross-plugin hook into JetEngine's Query Builder.
 - [`jetengine-listings-macros`](.claude/skills/jetengine-listings-macros/SKILL.md) — `%macro%` token syntax and
-  parsing, registering a custom macro, and why a macro prints literally instead of resolving.
+  parsing, registering a custom macro (including subclassing a built-in one), and why a macro prints literally
+  instead of resolving.
 - [`jetengine-mcp-tools`](.claude/skills/jetengine-mcp-tools/SKILL.md) — JetEngine's built-in MCP Tools /
   Features API layer (`tool-add-cct`, `tool-add-cpt`, `tool-add-taxonomy`, `tool-add-meta-box`, `tool-add-query`,
   `tool-add-listing`, `tool-add-glossary`, `tool-manage-modules`) — what each tool actually creates under the
@@ -70,6 +74,10 @@ reinventing probe code. See [`docs/test-harness-guide.md`](docs/test-harness-gui
 
 More to come — see [`docs/audit-2026-07-16.md`](docs/audit-2026-07-16.md) for a full gap analysis against the
 plugin source (what's covered, what isn't yet, prioritized backlog) and the Open Skills spec compliance check.
+Working on a *different* Crocoblock plugin (JetBooking, JetPopup, JetWooBuilder, etc.)?
+[`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`](.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md)
+has gist-sourced hook/class leads for several of them, gathered as a byproduct of auditing this repo's own
+three plugins — not a skill itself, just a head start for whoever builds one.
 
 ## How to install these skills
 

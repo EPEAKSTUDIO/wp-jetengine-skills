@@ -150,4 +150,69 @@ add_action( 'agent-test/run-suite/jetengine-listings-macros', function() {
 		agent_test_assert( $suite, 'macros-5', 'registry-miss smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// macros-6: subclassing a BUILT-IN macro class (Query_Results_Macro) instead of the
+	// abstract Jet_Engine_Base_Macros directly — registers and resolves correctly.
+	try {
+		if ( ! class_exists( '\\Jet_Engine\\Query_Builder\\Macros\\Query_Results_Macro' ) ) {
+			throw new \Exception( 'Jet_Engine\\Query_Builder\\Macros\\Query_Results_Macro not loaded' );
+		}
+		if ( ! class_exists( 'Agent_Test_Query_Results_Subclass' ) ) {
+			class Agent_Test_Query_Results_Subclass extends \Jet_Engine\Query_Builder\Macros\Query_Results_Macro {
+				public function macros_tag() { return 'agent_test_query_results_subclass'; }
+				public function macros_callback( $args = array() ) {
+					return 'SUBCLASS_OK';
+				}
+			}
+		}
+		$is_real_subclass = is_subclass_of( 'Agent_Test_Query_Results_Subclass', '\\Jet_Engine\\Query_Builder\\Macros\\Query_Results_Macro' );
+		$macros->handler->register_macros( new Agent_Test_Query_Results_Subclass() );
+		$out = $macros->do_macros( '%agent_test_query_results_subclass%' );
+		$pass = $is_real_subclass && ( 'SUBCLASS_OK' === $out );
+		agent_test_assert(
+			$suite, 'macros-6',
+			'SKILL.md "Subclassing a built-in macro instead of the abstract base": a class extending \\Jet_Engine\\Query_Builder\\Macros\\Query_Results_Macro (a real built-in macro), not Jet_Engine_Base_Macros directly, registers and resolves through do_macros() the same way as any other macro',
+			$pass,
+			array( 'is_real_subclass' => true, 'macro_output' => 'SUBCLASS_OK' ),
+			array( 'is_real_subclass' => $is_real_subclass, 'macro_output' => $out ),
+			'includes/components/query-builder/macros/query-results.php:6 (Query_Results_Macro extends Jet_Engine_Base_Macros)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'macros-6', 'subclassing built-in macro smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// macros-7: the custom-"context" two-filter pairing (allowed-context-list registers
+	// the key for the admin UI, data/object-by-context/{key} resolves it) both work
+	// end-to-end through the real Data::get_object_by_context().
+	try {
+		$data = jet_engine()->listings->data; // Jet_Engine_Listings_Data instance
+
+		add_filter( 'jet-engine/listings/allowed-context-list', function( $context ) {
+			$context['agent_test_context'] = 'Agent Test Context';
+			return $context;
+		} );
+		add_filter( 'jet-engine/listings/data/object-by-context/agent_test_context', function( $default ) {
+			return 'AGENT_TEST_CONTEXT_RESOLVED';
+		} );
+
+		$allowed = jet_engine()->listings->allowed_context_list();
+		$resolved = $data->get_object_by_context( 'agent_test_context' );
+
+		remove_all_filters( 'jet-engine/listings/allowed-context-list' );
+		remove_all_filters( 'jet-engine/listings/data/object-by-context/agent_test_context' );
+
+		$key_listed = is_array( $allowed ) && array_key_exists( 'agent_test_context', $allowed );
+		$pass = $key_listed && ( 'AGENT_TEST_CONTEXT_RESOLVED' === $resolved );
+
+		agent_test_assert(
+			$suite, 'macros-7',
+			'SKILL.md "Registering a custom context": jet-engine/listings/allowed-context-list registers a new context key (appears in allowed_context_list()), and jet-engine/listings/data/object-by-context/{key} resolves it via Data::get_object_by_context() — both wired through the real methods',
+			$pass,
+			array( 'key_listed' => true, 'resolved_value' => 'AGENT_TEST_CONTEXT_RESOLVED' ),
+			array( 'key_listed' => $key_listed, 'resolved' => $resolved ),
+			'includes/components/listings/manager.php:548-558 (allowed_context_list()), includes/components/listings/data.php:862-898 (get_object_by_context(), dynamic filter fallthrough)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'macros-7', 'custom listing context two-filter pair smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

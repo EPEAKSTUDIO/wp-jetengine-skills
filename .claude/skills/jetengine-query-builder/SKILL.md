@@ -4,7 +4,7 @@ description: Use when working with JetEngine's Query Builder component (SQL/Post
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # JetEngine Query Builder
@@ -102,6 +102,42 @@ itself is not `require`d until `Manager::setup_queries()` runs**, which happens 
 is the wrong place to call `Query_Factory::register_query()`** — the class doesn't
 exist yet and the call would fatal ("Class not found") unless something else already
 loaded it. The registration hook below is the correct, guaranteed-safe one.
+
+## Rewriting a query's assembled args or its returned items (the two most commonly used real-world hooks)
+
+By far the two most frequently used Query Builder extension points in real Codelab/Gist
+snippets — more common than the registration hooks above, which most integrators never
+need:
+
+- **`jet-engine/query-builder/query/after-query-setup`** (action, 1 arg: `$this` [the
+  `Base_Query` instance]) — `queries/base.php:397` — fires after `$this->final_query` is
+  fully assembled (the WP_Query-shaped args array, keyed by `query_type`/
+  `queried_object_id` plus whatever the concrete type added) but **before** items are
+  fetched. This is the right place to rewrite `$query->final_query` directly (e.g.
+  combining `post__in`/`post__not_in` so exclude wins over include, rewriting
+  `tax_query` into an OR-relation group, or forcing an `order`/`orderby` — see the
+  cross-plugin `jet-engine/query-builder/filters/before-after-props` hook in
+  `jetsmartfilters-query`, which fires from the same general area but is JSF-request-
+  specific). Since it's an action, not a filter, you mutate the object's public
+  `final_query` property directly rather than returning a value:
+  ```php
+  add_action( 'jet-engine/query-builder/query/after-query-setup', function( $query ) {
+      if ( 'posts' !== $query->query_type ) {
+          return;
+      }
+      if ( ! empty( $query->final_query['post__not_in'] ) && ! empty( $query->final_query['post__in'] ) ) {
+          $query->final_query['post__in'] = array_diff( $query->final_query['post__in'], $query->final_query['post__not_in'] );
+      }
+  } );
+  ```
+- **`jet-engine/query-builder/query/items`** (filter, 2 args: `$items`, `$query` [the
+  `Base_Query` instance]) — `queries/base.php:577,591`, inside `Base_Query::get_items()`
+  — fires on **every** call, including the cached-results early-return path (`:577`), so
+  a callback here runs whether or not the query actually re-executed. Use this to
+  reshape the *result set* after fetching (e.g. converting WooCommerce product/variation
+  posts into real `WC_Product` objects, or filtering out currently-invisible variations)
+  — as opposed to `after-query-setup`, which only affects what's queried, not what's
+  returned.
 
 ## Hooks
 

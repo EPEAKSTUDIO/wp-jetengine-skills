@@ -4,7 +4,7 @@ description: Use when building or debugging JetSmartFilters — how a selected f
 license: MIT
 metadata:
   author: project
-  version: "0.1.0"
+  version: "0.3.0"
 ---
 
 # JetSmartFilters Query Internals
@@ -43,6 +43,116 @@ consume them.
 hooks `jet-engine/listing/grid/posts-query-args` and merges
 `jet_smart_filters()->query->get_query_args()` into JetEngine's own query args, which
 then become the real `new WP_Query(...)` call.
+
+### `jet-smart-filters/query/final-query` — worked examples
+
+Real snippets hooking this filter, confirming the before/after shape of `$query_args`
+(a plain array, same keys `get_query_args()` returns — `_range`/`--range`-suffixed keys
+for range filters, `_search`-suffixed for search):
+
+```php
+// Split a `foo--range` array value into two scalar keys a downstream SQL/Query-Builder
+// query can bind separately as start/end.
+add_filter( 'jet-smart-filters/query/final-query', function( $query_args ) {
+    foreach ( $query_args as $key => $value ) {
+        if ( is_array( $value ) && preg_match( '/^(.+)--range$/', $key, $m ) ) {
+            $query_args[ $m[1] . '--range1' ] = $value[0] ?? '';
+            $query_args[ $m[1] . '--range2' ] = $value[1] ?? '';
+        }
+    }
+    return $query_args;
+} );
+
+// JetSmartFilters' own Search filter type leaves a `|search` suffix on its query var
+// name that downstream consumers don't recognize — strip it back off.
+add_filter( 'jet-smart-filters/query/final-query', function( $query_args ) {
+    foreach ( $query_args as $key => $value ) {
+        if ( false !== strpos( $key, '|search' ) ) {
+            $query_args[ str_replace( '|search', '', $key ) ] = $value;
+            unset( $query_args[ $key ] );
+        }
+    }
+    return $query_args;
+} );
+```
+
+**Undocumented cross-plugin hook**: when a Query Builder query is being driven by a live
+JetSmartFilters AJAX request, `Jet_Engine\Query_Builder\Listings\Filters::set_filtered_props()`
+fires `do_action( 'jet-engine/query-builder/filters/before-after-props', $query )`
+(`jet-engine/includes/components/query-builder/listings/filters.php:115`) — **one arg,
+the `Base_Query` instance** — right after the filtered query args have been applied to
+it via `set_filtered_prop()`, but before the query actually runs. This is a JetEngine
+Query Builder hook, not a JetSmartFilters one, but it only fires during a JSF filter
+request (guarded by `is_filters_request()`) — the real integration point for e.g.
+forcing a specific `order`/`orderby` on the underlying query independent of what JSF
+itself resolved, by calling `$query->set_filtered_prop( 'order', [...] )` again inside
+the callback. Neither this skill nor `jetengine-query-builder` previously documented it.
+
+## More render-time and admin-editor filters (beyond `prepare_args()`)
+
+Five more real hooks, sourced from Codelab/Gist snippets and confirmed in
+JetSmartFilters 3.8.3.1 source — none previously documented here:
+
+- **`jet-smart-filters/filter-instance/args`** (filter, 2 args: `$args`, `$this` [the
+  `Filter_Instance`]) — `includes/filters/instance.php:41` — fires once per filter
+  instance, right after its type-specific `prepare_args()` has run and `query_id`/
+  `show_label`/`display_options` defaults are merged in. This is the same filter the
+  built-in tax/plain-query dynamic-var system hooks (`tax-query/query-var.php:17`) to
+  resolve `%placeholder%` tokens in a filter's own settings — so a custom dynamic-var
+  resolver for filter *settings* (not query values) belongs here, not in `final-query`.
+- **`jet-smart-filters/filters/filter-options`** (filter, 3 args: `$options`,
+  `$filter_id`, `$this` [`Filter_Instance`, or `false` when called from the indexer])
+  — fires from every option-list-based filter type's `prepare_args()`
+  (`checkboxes.php:198`, `radio.php:193`, `select.php:206`, `color-image.php:197`,
+  `check-range.php:115`) plus the indexer's own option-building code
+  (`indexer/manager.php:882`, `indexer/data.php:491`, where `$this` is `false` — guard
+  for that before calling instance methods on it). Use to add/remove/reorder specific
+  option entries for one `$filter_id` without touching the underlying taxonomy/meta
+  source.
+- **`jet-smart-filters/range/source-callbacks`** (filter, 1 arg: `$callbacks` array) —
+  admin-editor only (`admin/includes/filter-settings-list.php:241`, and a legacy-UI
+  duplicate at `admin-classic/includes/filter-settings-list.php:835`) — registers extra
+  entries in the Range filter's "Source" dropdown (built-ins pull min/max from a single
+  meta key; a custom callback here can instead compute them from a Query Builder query
+  or arbitrary PHP, as in the "Custom Query Builder-backed range source" pattern several
+  real snippets implement).
+- **`jet-smart-filters/query/meta-query-row`** (filter, 3 args: `$current_row`, `$this`
+  [`Jet_Smart_Filters_Query`], `$additional_options`) — `includes/query.php:1175` — the
+  single assembled `meta_query` clause row, right before it's added to the overall
+  query args, one level more granular than `final-query` (which sees the whole assembled
+  array, not per-clause). Use this to rewrite one filter's clause (e.g. switching its
+  `compare` to a raw SQL-safe custom operator) without re-parsing the entire query args.
+- **`jet-smart-filters/post-type/meta-fields-settings`** (filter) — used by JetSmartFilters'
+  own JetEngine-compatibility layer (`includes/compatibility/jet-engine/manager.php:27`,
+  `cct_register_controls()`) to register CCT-specific field settings in the filter
+  editor's meta-field picker — the real extension point if you need a source's field
+  list to include something beyond regular post meta (the compatibility file itself is
+  the reference example to copy from).
+
+## The front-end JS event bus: `JetSmartFilters.events`
+
+Distinct from the `document`-level jQuery events (`jet-smart-filters/inited`,
+`jet-filter-content-rendered`) already used throughout this skill's examples — JSF also
+ships a small pub/sub event bus, confirmed present (channel name strings found verbatim)
+in the shipped `assets/js/public.js` bundle:
+
+```js
+document.addEventListener( 'jet-smart-filters/inited', function() {
+    window.JetSmartFilters.events.subscribe( 'ajaxFilters/updated', function( data ) {
+        // fires after a filtered AJAX request re-renders content — data carries the
+        // provider/query context, not just a bare "done" signal.
+    } );
+} );
+```
+
+Real channel names seen in the shipped JS (subscribe with these literal strings):
+`fiter/change` and `fiter/apply` (note: **"fiter"**, not "filter" — a real typo baked
+into the shipped event names, matches the pattern already flagged elsewhere in this repo
+for JetEngine's CSV `cvs-separator` misspelling), `fiter/syncSameFilters`,
+`ajaxFilters/updated`, `ajaxFilters/start-loading`, `ajaxFilters/end-loading`,
+`pagination/change`. `start-loading`/`end-loading` are the right hooks for a custom
+loading-spinner overlay (toggle it on/off in those two callbacks) instead of guessing at
+a CSS-class-based approach tied to JSF's own default spinner markup.
 
 ## AJAX filtering — no REST route, classic admin-ajax
 
@@ -287,3 +397,9 @@ read/write split, the standalone Listing engine, provider helpers registry, tax/
 dynamic-var double-resolution, `Service_Filters` direct-CRUD escape hatch, and the
 terms walker) by direct file:line citation. Not yet verified against a running site —
 see `TEST-REGIMEN.md`.
+
+**2026-07-16 addendum**: added the `final-query` worked examples and the
+`jet-engine/query-builder/filters/before-after-props` cross-plugin hook after reading
+`jet-engine/includes/components/query-builder/listings/filters.php` directly (confirming
+the 1-arg signature) and cross-checking against real Codelab snippets exercising
+`final-query` for range-splitting and `|search`-suffix stripping.

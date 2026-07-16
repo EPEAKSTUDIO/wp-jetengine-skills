@@ -135,4 +135,127 @@ add_action( 'agent-test/run-suite/jetsmartfilters-query', function() {
 		agent_test_assert( $suite, 'jsf-5', 'Service_Filters reachability smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// jsf-6: jet-smart-filters/query/final-query is a real, honored filter — a callback
+	// that adds a marker key is present in get_query_from_request()'s return value, called
+	// directly with a fake (empty) request array so no live filter/listing fixture is needed.
+	try {
+		$query_manager = function_exists( 'jet_smart_filters' ) ? jet_smart_filters()->query : null;
+		if ( ! $query_manager || ! method_exists( $query_manager, 'get_query_from_request' ) ) {
+			throw new \Exception( 'jet_smart_filters()->query not available' );
+		}
+		add_filter( 'jet-smart-filters/query/final-query', function( $query_args ) {
+			$query_args['agent_test_final_query_marker'] = true;
+			return $query_args;
+		} );
+		$result = $query_manager->get_query_from_request( array() );
+		$pass   = is_array( $result ) && ! empty( $result['agent_test_final_query_marker'] );
+		agent_test_assert(
+			$suite, 'jsf-6',
+			'SKILL.md "jet-smart-filters/query/final-query — worked examples": the filter is applied to the fully-assembled $query_args inside get_query_from_request() before it\'s returned/exposed via get_query_args() — a registered callback\'s mutation is present in the result',
+			$pass,
+			array( 'marker_present' => true ),
+			array( 'result_keys' => is_array( $result ) ? array_keys( $result ) : null, 'marker_present' => $pass ),
+			'includes/query.php:780 (apply_filters(\'jet-smart-filters/query/final-query\', $this->_query) right before return)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'jsf-6', 'final-query filter honored smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// jsf-7: the cross-plugin jet-engine/query-builder/filters/before-after-props hook exists
+	// in the currently-installed JetEngine source. Not invoked live here — it only fires
+	// mid-way through a real JetSmartFilters AJAX request driving a Query Builder query
+	// (Filters::set_filtered_props(), gated by is_filters_request()), which needs a live
+	// filter+listing fixture this sandbox doesn't have yet (see TEST-REGIMEN.md). Source-grep
+	// guards against the hook being renamed/removed by a plugin update.
+	try {
+		$file = WP_PLUGIN_DIR . '/jet-engine/includes/components/query-builder/listings/filters.php';
+		$contents = file_exists( $file ) ? file_get_contents( $file ) : '';
+		$has_hook = false !== strpos( $contents, "do_action( 'jet-engine/query-builder/filters/before-after-props', \$query )" );
+		agent_test_assert(
+			$suite, 'jsf-7',
+			'SKILL.md "Undocumented cross-plugin hook": jet-engine/query-builder/filters/before-after-props (1 arg, the Base_Query instance) is fired from Jet_Engine\\Query_Builder\\Listings\\Filters::set_filtered_props() in the currently-installed JetEngine source',
+			( '' !== $contents && $has_hook ),
+			array( 'file_readable' => true, 'hook_present' => true ),
+			array( 'file_readable' => ( '' !== $contents ), 'hook_present' => $has_hook ),
+			'jet-engine/includes/components/query-builder/listings/filters.php:115 — live source-grep since triggering this hook for real needs a live JSF AJAX request against a Query Builder query, not available on this sandbox yet'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'jsf-7', 'before-after-props hook presence smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// jsf-8: jet-smart-filters/query/meta-query-row fires per-clause, more granular than
+	// final-query (jsf-6 tests the whole-array hook; this tests the per-row one) — driven
+	// live by feeding get_query_from_request() a crafted meta_query-shaped request key,
+	// same safe technique as jsf-6 (no live filter/listing fixture needed).
+	try {
+		$query_manager = function_exists( 'jet_smart_filters' ) ? jet_smart_filters()->query : null;
+		if ( ! $query_manager || ! method_exists( $query_manager, 'get_query_from_request' ) ) {
+			throw new \Exception( 'jet_smart_filters()->query not available' );
+		}
+		$seen_row = null;
+		add_filter( 'jet-smart-filters/query/meta-query-row', function( $row, $q, $additional_options ) use ( &$seen_row ) {
+			$seen_row = $row;
+			return $row;
+		}, 10, 3 );
+		$query_manager->get_query_from_request( array( '_meta_query_agent_test_key' => 'agent_test_value' ) );
+		remove_all_filters( 'jet-smart-filters/query/meta-query-row' );
+		$pass = is_array( $seen_row ) && isset( $seen_row['key'] ) && 'agent_test_key' === $seen_row['key'];
+		agent_test_assert(
+			$suite, 'jsf-8',
+			'SKILL.md "More render-time and admin-editor filters": jet-smart-filters/query/meta-query-row fires per meta_query clause (3 args: current_row, query_manager, additional_options) from add_meta_query_var(), driven live via a crafted _meta_query_{key} request key',
+			$pass,
+			array( 'row_seen_with_right_key' => true ),
+			array( 'seen_row' => $seen_row ),
+			'includes/query.php:1175 (meta-query-row), :997-... (add_meta_query_var()), :620-631 (get_query_from_request()\'s meta_query key parsing)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'jsf-8', 'meta-query-row live filter test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// jsf-9: filter-instance/args, filters/filter-options, range/source-callbacks, and
+	// post-type/meta-fields-settings are source-presence checks only — the first two
+	// only fire from inside a real Filter_Instance/filter-type prepare_args() call
+	// (constructing one directly risks the same class of fatal jsf-3's landmine
+	// exposed for Storage\Controller, since filter-type classes assume a fully-configured
+	// filter post exists), and the latter two are admin-editor-only / compatibility-layer
+	// hooks with no safe live trigger from a REST request context.
+	try {
+		$checks = array(
+			array( 'includes/filters/instance.php', "apply_filters( 'jet-smart-filters/filter-instance/args'" ),
+			array( 'includes/filters/checkboxes.php', "apply_filters( 'jet-smart-filters/filters/filter-options'" ),
+			array( 'admin/includes/filter-settings-list.php', "apply_filters( 'jet-smart-filters/range/source-callbacks'" ),
+			array( 'includes/compatibility/jet-engine/manager.php', "'jet-smart-filters/post-type/meta-fields-settings'" ),
+		);
+		$results = array();
+		$all_pass = true;
+		foreach ( $checks as $c ) {
+			list( $rel_path, $needle ) = $c;
+			$file = WP_PLUGIN_DIR . '/jet-smart-filters/' . $rel_path;
+			$contents = file_exists( $file ) ? file_get_contents( $file ) : '';
+			$found = ( '' !== $contents ) && ( false !== strpos( $contents, $needle ) );
+			$results[ $rel_path ] = $found;
+			$all_pass = $all_pass && $found;
+		}
+		// Also confirm the JS event-bus channel name strings are present in the shipped bundle.
+		$js_file = WP_PLUGIN_DIR . '/jet-smart-filters/assets/js/public.js';
+		$js_contents = file_exists( $js_file ) ? file_get_contents( $js_file ) : '';
+		$js_channels = array( 'ajaxFilters/updated', 'ajaxFilters/start-loading', 'ajaxFilters/end-loading', 'pagination/change', 'fiter/change', 'fiter/apply' );
+		$js_found = array();
+		foreach ( $js_channels as $ch ) {
+			$js_found[ $ch ] = ( '' !== $js_contents ) && ( false !== strpos( $js_contents, $ch ) );
+		}
+		$all_pass = $all_pass && ! in_array( false, $js_found, true );
+
+		agent_test_assert(
+			$suite, 'jsf-9',
+			'SKILL.md "More render-time..." / "The front-end JS event bus": filter-instance/args, filters/filter-options, range/source-callbacks, post-type/meta-fields-settings all present in live PHP source; ajaxFilters/updated, start-loading, end-loading, pagination/change, fiter/change, fiter/apply all present in the shipped public.js bundle',
+			$all_pass,
+			array( 'all_php_hooks_present' => true, 'all_js_channels_present' => true ),
+			array( 'php' => $results, 'js' => $js_found ),
+			'includes/filters/instance.php:41, includes/filters/checkboxes.php:198, admin/includes/filter-settings-list.php:241, includes/compatibility/jet-engine/manager.php:27, assets/js/public.js (built bundle, channel names found as literal substrings) — source-presence only, not live-triggered'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'jsf-9', 'filter-instance/filter-options/range-callbacks/meta-fields-settings + JS channel presence test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

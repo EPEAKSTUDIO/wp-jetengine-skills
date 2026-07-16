@@ -28,6 +28,17 @@ Test 1 (after-send 2-arg signature, fires after DB save), Test 2 (per-action-typ
 Condition-gating), and Test 5 (block vs. shortcode forms) remain verified only by the
 2026-07-15 manual curl-based run below, not re-automated.
 
+## Run log — 2026-07-16 (addendum): DEFAULT.PROCESS executors filter added, 4/4 pass
+
+New `SKILL.md` section "Filtering which actions actually run (DEFAULT.PROCESS
+executors)", sourced from the official Crocoblock dev-docs / Codelab audit — the
+`jet-form-builder/default-process-event/executors` filter and the (still only
+lead-level) Payment Gateways module weren't previously documented. **hooks-4**
+instantiates `Default_Process_Event` directly, confirms its default executor list is
+non-empty, then registers a filter that empties it and confirms the empty result is
+actually returned — PASS, proves the filter genuinely gates what runs, not just that
+`apply_filters()` is called on paper.
+
 ## How the manual run was done (2026-07-15, for context)
 
 The site named as "the sandbox" turned out to be a live production install at the time

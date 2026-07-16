@@ -4,14 +4,14 @@ description: Use when writing PHP that reads OR writes JetEngine Custom Content 
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
 # JetEngine CCT & Relations Internals
 
-**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 3
-tests, `cct-1` through `cct-3`) per `docs/test-harness-guide.md` — 3/3 pass on first
-live run, no corrections needed. See `TEST-REGIMEN.md` for the run log.
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 6
+tests, `cct-1` through `cct-6`) per `docs/test-harness-guide.md` — 6/6 pass. See
+`TEST-REGIMEN.md` for the run log.
 
 Practical, verified facts about how JetEngine stores and links Custom Content Type (CCT)
 data, gathered by building a real endpoint that replaced several chained REST calls with
@@ -166,6 +166,70 @@ Fires real hooks around every write, useful for reacting to CCT changes without 
 `jet-engine/custom-content-types/{create-item,created-item,update-item,updated-item,delete-item}/{slug}`
 (each interpolates the CCT's slug, mirroring the JetFormBuilder per-action-type hook
 pattern documented in `jetformbuilder-hooks`).
+
+## Reformatting a field's value during CSV export
+
+The admin "Export items to CSV" action (`Jet_Engine\Modules\Custom_Content_Types\Export::send_items()`,
+`includes/modules/custom-content-types/inc/export.php:58-101`) runs each cell through
+`apply_filters( 'jet-engine/custom-content-types/export/value', $value, $key, $content_type, $item )`
+(`export.php:91`) right before writing it into the CSV row — this is the hook to
+reformat a field for export without touching how it's stored/returned elsewhere (e.g.
+turning a `repeater`-type field's raw array into human-readable text). Use
+`$content_type->get_formatted_fields()` to look up a field's declared `type` by key:
+
+```php
+add_filter( 'jet-engine/custom-content-types/export/value', function( $value, $key, $content_type, $item ) {
+    $fields = $content_type->get_formatted_fields();
+    if ( 'repeater' !== ( $fields[ $key ]['type'] ?? '' ) || ! is_array( $value ) ) {
+        return $value;
+    }
+    return implode( '; ', array_map( 'wp_json_encode', $value ) );
+}, 10, 4 );
+```
+
+The column separator itself is a **separate** filter,
+`jet-engine/custom-content-types/export/cvs-separator` (`export.php:70` — note the
+misspelling, "cvs" not "csv", matches the real hook name), defaulting to `,`.
+
+## Gating access, reshaping schema, and rewriting a pending write
+
+Four more `Factory`/`Item_Handler` filters, sourced from real Codelab/Gist snippets and
+confirmed against `includes/modules/custom-content-types/inc/factory.php` and
+`inc/item-handler.php`:
+
+- **`jet-engine/custom-content-types/user-has-access`** (filter, 2 args: `$allow` bool,
+  `$factory` instance) — `factory.php:128-134`, inside `Factory::user_has_access()`.
+  Fires with `current_user_can( $this->user_cap() )` as the starting value; return
+  `false` to block a user from creating/editing/deleting items of this CCT regardless of
+  their capability, or `true` to grant access to a role that otherwise lacks the
+  configured capability (e.g. letting a custom `hr-manager` role edit others' items).
+- **`jet-engine/custom-content-types/factory/raw-fields`** (filter, 2 args: `$fields`
+  array, `$factory` instance) — `factory.php:39`, applied to the field list right after
+  it's assembled from config + service fields, before it's handed to `DB` for column
+  definitions. Use to add/remove options on a specific field by checking
+  `$factory->get_arg( 'slug' )`.
+- **`jet-engine/custom-content-types/admin-columns`** (filter, 2 args: `$columns` array,
+  `$factory` instance) — `factory.php:850-854`, applied after JetEngine builds its
+  default admin-list columns (including any `_cb` render callback already assigned for
+  known column types like `cct_single_post_id`). Add a custom `_cb` callable here to
+  reformat a column's displayed value (e.g. resolving an author-id field to a
+  `display_name`, or a date field to a formatted string).
+- **`jet-engine/custom-content-types/item-to-update`** (filter, 3 args: `$item` array,
+  `$fields` array, `$item_handler` instance) — `item-handler.php:397`, inside
+  `Item_Handler::update_item()`, applied to the assembled `$item` array right before the
+  actual insert/update DB call. This is the last point to rewrite/sanitize a value (e.g.
+  `wp_unslash()`-ing a textarea field) or inject a computed column before it's persisted
+  — later than `export/value` (which only affects CSV export, not storage).
+
+```php
+// Let a custom role edit CCT items they don't own, but only for this one CCT:
+add_filter( 'jet-engine/custom-content-types/user-has-access', function( $allow, $factory ) {
+    if ( 'orders' === $factory->get_arg( 'slug' ) && current_user_can( 'hr-manager' ) ) {
+        return true;
+    }
+    return $allow;
+}, 10, 2 );
+```
 
 ## Debugging JetEngine APIs you're unsure about
 

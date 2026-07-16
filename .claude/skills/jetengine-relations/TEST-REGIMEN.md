@@ -30,6 +30,27 @@ JetFormBuilder "Connect Relation Items" action (Test 5, needs a real form submis
 and the public REST API `{context}` param values (Test 6, needs a live HTTP call against
 `/jet-rel/...`).
 
+## Run log — 2026-07-16 (second addendum): raw-relations, relation/update hooks, Sources system added, 9/9 pass
+
+New `SKILL.md` sections sourced from real Codelab/Gist snippets found while auditing
+Crocoblock's public GitHub Gists account (305 gists total; see repo `HANDOFF.md` for the
+full audit). **Correction**: the original "Storage" section's claim that "there is no
+public `register_relation()` helper" is now qualified — `jet-engine/relations/raw-relations`
+(`manager.php:357-358`) lets you append relation config to the array before relation
+objects are built on `init`, which is a real way to register a relation programmatically,
+just not literally a function named `register_relation()`.
+
+**rel-7** drives `relation/update/before`/`relation/update/after` live against a real
+`update()` call on relation 17, confirming both fire with the documented arg shapes and
+`item_id` matches the returned row's `_ID` — PASS. **rel-8** drives the Sources
+fallback (`get_id_by_source()` → `object-id-by-source/{key}` filter) live with a fake
+source key — PASS. **rel-9** is a source-presence check only for `raw-relations` and
+`types/posts/get-items`, since both fire outside a normal REST-request lifecycle
+(`raw-relations` on `init` before the request; `get-items` only when the admin-UI picker
+renders) and can't be usefully re-triggered mid-request the way rel-7/rel-8's hooks can.
+
+**Final result: 9/9 pass**, no fixes needed this round.
+
 ## How the fixtures were built (2026-07-15/16)
 
 The 2026-07-15 attempt was blocked: the sandbox had zero JetEngine Relations configured,

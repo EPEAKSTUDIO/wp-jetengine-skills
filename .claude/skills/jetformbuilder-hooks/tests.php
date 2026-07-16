@@ -107,4 +107,34 @@ add_action( 'agent-test/run-suite/jetformbuilder-hooks', function() {
 		agent_test_assert( $suite, 'hooks-3', 'Call Hook do_action() direct-invocation smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// hooks-4: jet-form-builder/default-process-event/executors is a real, honored filter —
+	// Default_Process_Event::executors() returns at least one executor by default, and a
+	// filter callback that strips them all is actually applied (proves the filter gates the
+	// action-execution pipeline, not just that apply_filters() exists).
+	try {
+		if ( ! class_exists( '\\Jet_Form_Builder\\Actions\\Events\\Default_Process\\Default_Process_Event' ) ) {
+			throw new \Exception( 'Default_Process_Event not loaded' );
+		}
+		$event  = new \Jet_Form_Builder\Actions\Events\Default_Process\Default_Process_Event();
+		$before = $event->executors();
+
+		add_filter( 'jet-form-builder/default-process-event/executors', function( $executors ) {
+			return array(); // strip all executors, to prove the filter's return value is actually used
+		}, 999 );
+
+		$after = $event->executors();
+		$pass  = is_array( $before ) && count( $before ) >= 1 && is_array( $after ) && 0 === count( $after );
+
+		agent_test_assert(
+			$suite, 'hooks-4',
+			'SKILL.md "Filtering which actions actually run": jet-form-builder/default-process-event/executors filters the array Default_Process_Event::executors() returns (default: at least one Default_Process_Executor); a callback that empties the array is honored, confirming this is the real extension point for conditionally stripping executors (e.g. a Payment Gateways executor)',
+			$pass,
+			array( 'before_count_at_least' => 1, 'after_count' => 0 ),
+			array( 'before_count' => is_array( $before ) ? count( $before ) : null, 'after_count' => is_array( $after ) ? count( $after ) : null ),
+			'includes/actions/events/default-process/default-process-event.php:34-41'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'hooks-4', 'default-process-event executors filter smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

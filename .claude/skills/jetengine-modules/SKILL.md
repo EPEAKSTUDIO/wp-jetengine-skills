@@ -4,17 +4,17 @@ description: Use when working with a JetEngine module that isn't CCT/Relations/Q
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
 # JetEngine standalone modules
 
 **Live-verified (2026-07-16):** this skill now has a runnable suite
-(`tests.php`, 6 tests, `mod-1` through `mod-6`) per `docs/test-harness-guide.md`. While
-writing it, re-reading the Custom Meta Tables source turned up a real documentation bug
-— the namespace claim below was wrong (see that section for the correction) — `mod-6`
-now asserts the fix directly. See `TEST-REGIMEN.md` for the full run log and pass/fail
-results.
+(`tests.php`, 10 tests, `mod-1` through `mod-10`) per `docs/test-harness-guide.md`. While
+writing the first version, re-reading the Custom Meta Tables source turned up a real
+documentation bug — the namespace claim below was wrong (see that section for the
+correction) — `mod-6` now asserts the fix directly. See `TEST-REGIMEN.md` for the full
+run log and pass/fail results.
 
 Several JetEngine subsystems are self-contained enough that they don't fit
 `jetengine-cct-internals`, `jetengine-relations`, or `jetengine-query-builder`, but are
@@ -51,6 +51,35 @@ were actually defined through JetEngine's meta-box UI — read them back through
 `get_fields_for_context()`, not by guessing at a `register_metabox()`-adjacent template
 function that doesn't exist.
 
+**Adding a custom "Options Source" for checkbox/radio/select fields** is a **two-filter
+pairing**, not one — easy to implement only half of and get an empty dropdown:
+
+```php
+// 1. Register the source's name (shows up in the field's "Options Source" dropdown)
+add_filter( 'jet-engine/meta-boxes/option-sources', function( $sources ) {
+    $sources['user_roles'] = __( 'User Roles' );
+    return $sources;
+} ); // Jet_Engine_Meta_Boxes_Option_Sources::get_allowed_sources(), fields-options/option-sources.php:411
+
+// 2. Supply the actual option list when a field's options_source matches your key
+// Fires as `apply_filters( ..., $options, $field, $this )` from Jet_Engine_CPT_Meta::filter_options_list()
+// (post.php:1545) — 3 args, register with `10, 3` even though only $field is needed here.
+add_filter( 'jet-engine/meta-fields/field-options', function( $options, $field ) {
+    if ( 'user_roles' !== ( $field['options_source'] ?? '' ) ) {
+        return $options;
+    }
+    global $wp_roles;
+    foreach ( $wp_roles->roles as $slug => $role ) {
+        $options[] = array( 'value' => $slug, 'label' => $role['name'] );
+    }
+    return $options;
+}, 10, 3 );
+```
+
+Registering only the source name makes it selectable in the admin but yields an empty
+options list at render time; registering only the options filter without the source name
+means the admin UI never offers it as a choice.
+
 ## Options Pages
 
 - `Jet_Engine_Options_Pages` — `includes/components/options-pages/manager.php`,
@@ -74,6 +103,16 @@ function that doesn't exist.
 - Hooks: `do_action('jet-engine/options-pages/updated/' . $slug, $this)` and the
   non-namespaced `'jet-engine/options-pages/updated'` (`options-page.php:283,291`),
   `do_action('jet-engine/options-pages/after-save', $this)` (`options-page.php:200`).
+- **Registering a whole options page programmatically** (not just reading/writing an
+  existing one) is a real, public one-liner — confirmed at `manager.php:122-126`:
+  `jet_engine()->options_pages->register_new_options_page( $args )`. `$args` is the same
+  shape the admin UI saves (`slug`, `title`, `fields` — a repeater-style array of field
+  definitions, same schema Meta Boxes uses — plus optional `id`/`parent` for a child
+  page). This is what `Manager::register_instances()` itself calls in a loop over
+  configured pages on `init`, so calling it yourself at the same priority ships a page
+  with no manual admin-UI setup step, the same pattern as the Relations
+  `raw-relations` filter (see `jetengine-relations`) — except this one's a plain method
+  call, not a filter you append to.
 
 ## Data Stores (favorites / recently-viewed / on-view tracking — NOT a generic KV store)
 
@@ -102,6 +141,29 @@ a generic key-value API.
 - There's a separate, unrelated internal `DB` class
   (`includes/modules/data-stores/inc/db.php`) used only by the `On_View`/database-backed
   store types — don't confuse it with the public `Manager`/`Base_Store` API above.
+- **Gotcha: the before/after add/remove/count hooks only fire from the AJAX handlers,
+  not from a direct `add_to_store()`/`remove()` call.** `Factory::ajax_add_to_store()`/
+  `ajax_remove_from_store()` (`inc/stores/factory.php:182-288`) wrap the actual store
+  write with `do_action( 'jet-engine/data-stores/before-add-to-store', $post_id, $store,
+  $this )` / `.../after-add-to-store` (same 3 args) and the `remove` equivalents — but
+  if you call `$store->get_type()->add_to_store( $store_slug, $post_id )` directly from
+  your own PHP (as shown above), **none of these fire** — they're only reachable via the
+  real front-end AJAX action (`wp_ajax_jet_engine_add_to_store_{slug}`). If you need a
+  hook point for a programmatic add, call the AJAX method's logic yourself or hook one
+  level up at your own call site instead of expecting these to fire.
+- `Factory::increase_post_count( $post_id )` / `decrease_post_count( $post_id )`
+  (`factory.php:290,316`, only relevant when the store's `count_posts` arg is enabled)
+  fire **`jet-engine/data-stores/post-count-increased`** /
+  **`jet-engine/data-stores/post-count-decreased`** (both 3 args: `$post_id`, `$count`
+  [the count *after* the change], `$this` [the `Factory`]) — these DO fire from
+  `ajax_add_to_store()`/`ajax_remove_from_store()` (same caveat as above: not from a bare
+  `add_to_store()` call). There's also a filter to fully replace the counting logic:
+  **`jet-engine/data-stores/custom-count-increased`**/`...-decreased` (4 args: `false`
+  default, `$post_id`, `$count`, `$this`) — return non-`false` to skip JetEngine's own
+  `update_post_meta()`/`update_user_meta()` bookkeeping and do your own instead.
+- **`jet-engine/data-stores/pre-get-post-count`** (filter, 3 args: `false` default,
+  `$post_id`, `$this`) — `factory.php:110` — return a non-`false` value to fully
+  override the reported count for a post without touching the stored meta value.
 
 ## Dynamic Visibility (conditional display — a standalone module, not part of JFB/JSF)
 
@@ -168,6 +230,60 @@ different tables entirely) since both involve "JetEngine + a custom DB table."
 - `DB::insert()` / `DB::update()` / `DB::query()` — same public surface as other
   JetEngine `Base_DB`-style storage classes.
 - Filters: `jet-engine/custom-meta-tables/table-name-for-object-slug` (`manager.php:78`).
+
+## Maps Listings (geocoding + autocomplete providers)
+
+A standalone module for the Map field/widget's address→coordinates lookups — distinct
+from the Map *field* itself (JFB has its own Map field JS API, unrelated).
+
+- `Jet_Engine\Modules\Maps_Listings\Providers_Manager` —
+  `includes/modules/maps-listings/inc/providers-manager.php` — reachable via
+  `\Jet_Engine\Modules\Maps_Listings\Module::instance()->providers`. Built-in geocode
+  providers: `Google`, `OpenStreetMap`, `Photon`, `Bing` (each in its own file under
+  `inc/geocode-providers/`), all extending a common `Base`. Get the active one
+  (configured in module settings) via `->get_active_map_provider()`, or any provider by
+  type+id via `->get_providers( 'geocode', $provider_id )` (`providers-manager.php:25`).
+- **Registration hook is misnamed relative to the module** — a real, confirmed naming
+  inconsistency: registering a custom geocode provider goes through
+  `jet-engine/maps-listing/register-geocode-providers` (**singular** "listing",
+  `providers-manager.php:46`), while the request-shaping filters below are
+  `jet-engine/maps-listings/...` (**plural**). Don't assume they share a prefix — copy
+  the exact string for whichever one you need.
+- Once you have a geocode provider instance (e.g. from a "Call a Hook" JFB action doing
+  server-side geocoding), the real call is `$provider->get_location_data( $address )` —
+  used together with `Module::instance()->settings->get( 'geocode_provider' )` to find
+  which one is active.
+- Per-provider request-shaping filters (all confirmed in `inc/geocode-providers/{google,openstreetmap}.php`):
+  `jet-engine/maps-listings/autocomplete-request-body/google` (filters the JSON body sent
+  to Google's new Places API), `jet-engine/maps-listings/autocomplete-url-args/google`,
+  `jet-engine/maps-listings/autocomplete-url-args/openstreetmap` (both filter the URL
+  query-args array for the legacy/OSM autocomplete request) — useful for restricting
+  autocomplete results to specific countries via each API's own region-bias params.
+
+## Profile Builder (front-end user account pages)
+
+A standalone module for building a front-end "my account"-style page with sub-pages, out
+of scope of the base Relations/CCT facts already covered elsewhere.
+
+- `Jet_Engine\Modules\Profile_Builder\Module::instance()` —
+  `includes/modules/profile-builder/`. Key sub-objects: `->settings` (`inc/settings.php`
+  — `get_pages()`, `get( 'user_page_structure' )`, `get_subpage_data( $slug, $page )`),
+  `->query` (`inc/query.php` — `is_account_page()`, `get_subpage_data()`,
+  `get_queried_user_slug()`). Note **both** `->settings` and `->query` expose a
+  `get_subpage_data()` method with a different signature — check which object you have
+  before calling it.
+- **`jet-engine/profile-builder/rewrite-rules`** (filter, 2 args: `$rules` array,
+  `$this` [rewrite manager]) — `inc/rewrite.php:79` — the generated rewrite rules array
+  right before it's returned/registered; used to add e.g. two-level subpage URLs or
+  slug-less single-user URLs.
+- **`jet-engine/profile-builder/subpage-url`** (filter, 5 args: `$url`, `$slug`, `$page`,
+  `$page_data`, `$this` [settings]) — `inc/settings.php:623` — the generated subpage URL,
+  right before it's returned; rewrite this to change the URL structure without touching
+  rewrite rules directly.
+- **`jet-engine/profile-builder/user-page-title/macros`** (filter, array of macro
+  definitions) — `inc/frontend.php:459` — extends the set of macros usable specifically
+  inside the account page's title setting (separate from the general Listings macro
+  system in `jetengine-listings-macros` — this is a narrower, page-title-only set).
 
 ## How this was verified
 

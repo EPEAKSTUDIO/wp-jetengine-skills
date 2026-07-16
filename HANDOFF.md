@@ -97,6 +97,13 @@ keys (`jetengine-mcp-tools`), and pipe-arg macro syntax (`%macro|foo,bar%`) is s
 dropped unless the macro class declares a matching `macros_args()` schema
 (`jetengine-listings-macros`) — both now folded into their `SKILL.md`s.
 
+**2026-07-16, second round (dev-docs + Codelab audit — see below for detail): 7 of those
+10 suites gained one new test each** (`jetsmartfilters-query` 7/7, `jetengine-modules`
+7/7, `jetformbuilder-fields` 8/8, `jetengine-cct-internals` 4/4, `jetengine-listings-macros`
+6/6, `jetformbuilder-actions` 4/4, `jetformbuilder-hooks` 4/4) — **54/54 assertions
+passing across all 10 suites** as of this writing, one real fix needed along the way
+(`jfb-8` initially fataled on a missing `set_context()` call, fixed same session).
+
 Two smaller, self-contained gaps remain: `jetengine-modules`' Dynamic Visibility/Data
 Stores tests only check module-gating right now because neither module is activated on
 the sandbox (see that skill's `TEST-REGIMEN.md`); and several suites (`jetengine-modules`,
@@ -110,6 +117,142 @@ tests remain open for this reason.
 
 Full prioritized backlog (new skills to write, deeper gaps within existing ones):
 `docs/audit-2026-07-16.md`'s "Backlog" section at the bottom.
+
+## 2026-07-16, second round: dev-docs + Codelab audit
+
+Read the official Crocoblock `developer-documentation` GitHub repo (cloned to
+`C:\tmp\dev-docs`, not committed here) and crawled crocoblock.com/codelab (real
+customer-built snippets) via two background research agents, diffed both against all 10
+existing skills, then verified every finding against locally-checked-out plugin source
+(`plugins/jet-engine`, `plugins/jetformbuilder`, `plugins/jet-smart-filters` — gitignored,
+not committed) before writing anything down — one codelab-sourced claim
+(`jet-engine/meta-fields/field-options`'s arg count, copied from a snippet that itself
+registered it wrong) was corrected from 2 args to the real 3 during this process, exactly
+the kind of error this repo's "verify against source, not just an external doc" principle
+exists to catch.
+
+**Landed this round** (all live-verified via `tests.php`, deployed/re-run against
+`jackfruit.epeak.studio`, all green — 47 new assertions across 7 suites, 0 failures after
+one fix — see each skill's `TEST-REGIMEN.md` "Run log" addendum for specifics):
+- `jetformbuilder-actions`: the Action Conditions system (`jet-form-builder/register/action-condition-settings`
+  + `jet-form-builder/actions/process-condition`) — previously undocumented in any JFB skill.
+- `jetformbuilder-hooks`: the `jet-form-builder/default-process-event/executors` filter
+  and a first concrete lead into the still-uninventoried Payment Gateways module.
+- `jetformbuilder-fields`: the media-field guest-upload gate
+  (`jet-form-builder/media-field/before-upload` + `Parser_Context::allow_for_guest()`).
+- `jetengine-listings-macros`: the "subclass a built-in macro class" pattern (distinct
+  from subclassing the abstract base), worked via `Query_Results_Macro`.
+- `jetengine-cct-internals`: the CSV export value/separator filters.
+- `jetengine-modules`: the Meta Boxes custom Options Source two-filter pairing.
+- `jetsmartfilters-query`: worked `final-query` examples (range-splitting, `|search`
+  suffix stripping) and a newly-documented cross-plugin hook,
+  `jet-engine/query-builder/filters/before-after-props`.
+
+One claim was checked and found **not** to be a contradiction despite looking like one at
+first pass: the dev-docs' own example for `jet-form-builder/action/after-post-*` registers
+with `add_action(..., 10, 2)`, but the real source (`base-post-action.php:37-42`) fires it
+with 3 args — `jetformbuilder-hooks`' existing claim was already correct; the dev-docs
+example just doesn't request the 3rd arg (harmless, WP allows that).
+
+**Deliberately not attempted this round** (scoped out for time, not forgotten — see
+`docs/audit-2026-07-16.md`-style backlog below): three entirely new, sizeable JetEngine/
+JFB subsystems the audit surfaced with no owning skill yet —
+- **JetFormBuilder Payment Gateways module** (`modules/gateways/*`) — PayPal/Stripe
+  checkout, its own scenario/executor classes and DB-backed payment records. Both
+  `jetformbuilder-fields` and `jetformbuilder-hooks` now flag concrete entry points
+  (`get_gateways()`, the executors filter) but the module itself is unexplored.
+- **JetFormBuilder's own macro-filter system** (`%field|filter(args)%`,
+  `jet-form-builder/content-filters`) — a separate implementation from JetEngine's
+  `%macro%` engine with confusingly similar syntax; ~12 built-in filters, zero coverage.
+- **JetEngine Profile Builder module** and **REST API Listings module** — both real,
+  both undocumented anywhere in this repo.
+Also out of scope this round: the 4 plugins dev-docs covers that aren't installed on the
+sandbox yet (JetPopup, JetBooking, JetWooProductGallery, JetCompareWishlist) — noted for
+future "adding a new Crocoblock plugin" work, no source/sandbox access attempted.
+
+## 2026-07-16, third round: full Crocoblock GitHub Gists audit (305 gists)
+
+Follow-up to the second round above, prompted by a direct question: the Codelab pass
+had only sampled ~16 of ~126 snippets (via a 403-workaround against the marketing site).
+Crocoblock's GitHub Gists account (`https://gist.github.com/Crocoblock`) turned out to be
+the actual raw source those Codelab pages embed, and a far more complete/reliable one —
+**305 public gists total**, fetched via `api.github.com/users/Crocoblock/gists` (clean,
+paginated, no 403). Six parallel background research agents fetched and read the real
+code (not just descriptions) for all 305, classifying each as JetEngine/JetFormBuilder/
+JetSmartFilters-relevant (**~230 gists**) or belonging to a different Crocoblock plugin
+(**~75 gists** — JetBooking/JetAppointments, JetPopup, JetWooBuilder, JetReviews,
+JetSearch, JetElements, JetBlog, JetThemeCore, JetTabs, JetCompareWishlist, etc.).
+
+The out-of-scope ~75 are logged with gist URLs + key hook/class names in
+`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md` (not a Claude Code Skill itself
+— a research log for whoever builds out the next plugin's skill; JetBooking/
+JetAppointments is flagged as the highest-priority next candidate, ~25 gists including a
+full JS API reference doc already gisted).
+
+Every candidate finding from the ~230 relevant gists was verified against the locally
+checked-out plugin source (same `plugins/jet-engine`/`jetformbuilder`/`jet-smart-filters`
+checkouts as the second round) before being written down or tested — this caught two
+real mistakes before they shipped:
+- A `SKILL.md` draft for `jetformbuilder-actions`' new "custom Insert/Update Post object
+  property" section initially wrote `$properties->push( new My_Property() )`, copying
+  the shape of similar collection APIs — but `Object_Properties_Collection`/`Collection`
+  has no `push()` method; the real one is `add()` (confirmed at
+  `includes/classes/arrayable/collection.php:77`). Fixed before ever deploying a test.
+- `jetengine-query-builder`'s new `qb-5` test assumed `after-query-setup` would re-fire
+  on every `get_items()` call (like `query/items` genuinely does) — it doesn't;
+  `Manager::get_query_by_id()` returns an already-constructed, cached query object, and
+  `after-query-setup` only ever fires once, at construction time on `init`. Caught by an
+  actual failing assertion on first run, not by re-reading source more carefully after
+  the fact — split into a live test (query/items) and a source/precondition check
+  (after-query-setup) once the real timing was understood.
+
+**Landed this round** (all live-verified via `tests.php`, deployed/re-run against
+`jackfruit.epeak.studio`, all green — 52 assertions across 7 suites, 1 failure caught
+and fixed same-session — see each skill's `TEST-REGIMEN.md` "second addendum" for
+specifics):
+- `jetengine-cct-internals`: `user-has-access`, `item-to-update`, `factory/raw-fields`,
+  `admin-columns` filters (gating writes, reshaping schema, rewriting a pending write).
+- `jetengine-relations`: `jet-engine/relations/raw-relations` (a real, previously-missed
+  way to register a relation's *config* without the admin UI — corrects the earlier
+  "no `register_relation()` helper" claim), `relation/update/before`+`/after` hooks, the
+  Sources system (`sources-list`/`object-id-by-source/{key}`), and a custom post-picker
+  items filter for the "Connect Relation Items" UI.
+- `jetengine-modules`: Data Stores' AJAX-only hook gotcha (before/after add/remove hooks
+  only fire from `ajax_add_to_store()`/`ajax_remove_from_store()`, not a direct
+  `add_to_store()` call) plus its post-count hooks, programmatic Options Page
+  registration (`register_new_options_page()`), and a new Maps Listings section
+  (geocode providers, a real naming inconsistency between `maps-listing` singular vs.
+  `maps-listings` plural hook prefixes) and Profile Builder section.
+- `jetengine-query-builder`: the two most commonly-used real-world hooks,
+  `after-query-setup` and `query/items` (previously undocumented despite being far more
+  common in the wild than the registration hooks this skill already covered).
+- `jetengine-listings-macros`: the custom-"context" two-filter pairing
+  (`allowed-context-list` + `object-by-context/{key}`) — same shape as the Options
+  Source pairing in `jetengine-modules`, used by several independent real snippets to add
+  contexts like "post parent" / "post featured image" / "previous object in stack".
+- `jetsmartfilters-query`: five more filters (`filter-instance/args`,
+  `filters/filter-options`, `range/source-callbacks`, `query/meta-query-row`,
+  `post-type/meta-fields-settings`) and the front-end JS event bus
+  (`JetSmartFilters.events.subscribe()`, real channel names including a genuine "fiter"
+  typo baked into the shipped JS).
+- `jetformbuilder-actions`: the `post-modifier/object-properties` extension point for
+  the Insert/Update Post action — confirmed as a real, common pattern (custom Post Slug/
+  Password/Menu-Order/Scheduled-Date properties) across many independent snippets.
+
+**Deliberately not attempted this round** (scope decision, not an oversight — flagged for
+a future pass): `jetformbuilder-hooks`, `jetformbuilder-fields`, `jetengine-mcp-tools`,
+and `jetengine-router` had comparatively few new findings in the ~230-gist set and were
+left untouched this round to keep the verify-then-test discipline tight rather than
+spreading thinner across more files. A non-exhaustive list of findings not yet folded in
+anywhere (mostly one-off widget/field tweaks, lower value than what's listed above):
+JFB gateways `before-create`/`response`/`request-args` (Stripe/webhook), `capability/
+form`, `form-action-url`, `form-refer-url`, `before-start-form`/`after-end-form`,
+`preset-sanitize`/`editor/preset-config`, `content-filters` (`Base_Filter` class for
+Send-Email macros), per-field-type `render/{type}-field/attributes` filters, JetEngine
+Charts Builder (a hook name was seen in a gist but couldn't be verified — the add-on's
+source isn't in this repo's local plugin checkout, so it was deliberately **not**
+documented per this repo's verify-before-writing principle), and QR Code module details
+beyond the one function already noted in `jetengine-listings-macros`.
 
 ## Adding a new Crocoblock plugin (JetPopup, JetWooBuilder, JetStyleManager, etc.)
 

@@ -4,7 +4,7 @@ description: Use when you need to read or write a submitted field's value generi
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # JetFormBuilder field data, custom fields, validation, presets, and stored records
@@ -88,6 +88,29 @@ sanitization/shape. Registered per-type via `Module::get_parser( $type )`
 (`modules/block-parsers/module.php`). If a custom field type's value needs anything
 beyond plain-string handling (e.g. an array, a date object, an attachment ID), write a
 matching parser — don't assume the default parser's plain-string behavior applies.
+
+## Media field: guest uploads are blocked by default
+
+`Media_Field_Parser::get_response()` (`modules/block-parsers/fields/media-field-parser.php:31-72`)
+fires `do_action( 'jet-form-builder/media-field/before-upload', $this )` right before
+handing the uploaded file to `File_Uploader` — `$this` is the `Media_Field_Parser`
+itself, which exposes `get_context()`. The real "why can't logged-out users upload a
+file" answer: whether guests are allowed and how the resulting value is shaped both live
+on the parser's **context settings**, set from this hook, not a standalone filter:
+
+```php
+add_action( 'jet-form-builder/media-field/before-upload', function( $parser ) {
+    $parser->get_context()->allow_for_guest();
+    $parser->get_context()->update_setting( 'insert_attachment', true );
+    $parser->get_context()->update_setting( 'value_format', 'id' );
+} );
+```
+
+Without `allow_for_guest()` called somewhere in this hook, an unauthenticated submitter's
+upload is rejected before `File_Uploader::upload()` runs. `value_format` (`id`/`both`/`ids`/
+default URL) mirrors `get_value_format()`'s switch (`media-field-parser.php:62-71`) — same
+setting the field's own editor "Value Format" control writes, just settable here
+programmatically per-submission.
 
 ## Custom validation rules — no public registration filter exists (real gap)
 

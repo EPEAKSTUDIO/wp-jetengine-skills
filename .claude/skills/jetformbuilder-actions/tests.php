@@ -108,4 +108,122 @@ add_action( 'agent-test/run-suite/jetformbuilder-actions', function() {
 		agent_test_assert( $suite, 'act-3', 'silent ID collision smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// act-4: Action Conditions — a custom operator registered via
+	// jet-form-builder/register/action-condition-settings shows up in the operators list,
+	// and jet-form-builder/actions/process-condition is consulted (and its verdict honored)
+	// for that operator, end-to-end through Condition_Manager::check_all().
+	try {
+		if ( ! class_exists( '\\Jet_Form_Builder\\Actions\\Conditions\\Condition_Manager' )
+			|| ! function_exists( 'jet_fb_context' ) ) {
+			throw new \Exception( 'Condition_Manager or jet_fb_context() not available' );
+		}
+
+		add_filter( 'jet-form-builder/register/action-condition-settings', function( $settings ) {
+			$settings['operators'][] = array(
+				'label'        => 'Agent Test Contains Any',
+				'value'        => 'agent_test_contains_any',
+				'need_explode' => true,
+			);
+			return $settings;
+		} );
+
+		$seen_operator = null;
+		add_filter( 'jet-form-builder/actions/process-condition', function( $result, $condition ) use ( &$seen_operator ) {
+			if ( 'agent_test_contains_any' !== $condition->get_operator() ) {
+				return $result;
+			}
+			$seen_operator = $condition->get_operator();
+			$field         = (array) $condition->get_field_value();
+			return (bool) array_intersect( $field, $condition->get_compare_as_array() );
+		}, 10, 2 );
+
+		jet_fb_context()->update_request( array( 'a', 'b' ), 'agent_test_condition_field' );
+
+		$manager = new \Jet_Form_Builder\Actions\Conditions\Condition_Manager();
+		$manager->set_conditions( array(
+			array(
+				'type'     => 'field',
+				'field'    => 'agent_test_condition_field',
+				'operator' => 'agent_test_contains_any',
+				'default'  => 'b,c', // intersects with ['a','b'] submitted above -> condition should pass
+				'execute'  => true,
+			),
+		) );
+		$manager->set_condition_operator( 'and' );
+
+		$operator_registered = in_array( 'agent_test_contains_any', $manager->get_operators_list(), true );
+
+		$threw = false;
+		try {
+			$manager->check_all();
+		} catch ( \Jet_Form_Builder\Exceptions\Condition_Exception $e ) {
+			$threw = true;
+		}
+
+		$pass = $operator_registered && ( 'agent_test_contains_any' === $seen_operator ) && ( false === $threw );
+
+		agent_test_assert(
+			$suite, 'act-4',
+			'SKILL.md "Action conditions": a custom operator registered via jet-form-builder/register/action-condition-settings appears in Condition_Manager\'s operators list, and jet-form-builder/actions/process-condition is consulted for it — Condition_Manager::check_all() honors the filter\'s verdict (no Condition_Exception thrown when it returns true)',
+			$pass,
+			array( 'operator_registered' => true, 'process_condition_consulted' => 'agent_test_contains_any', 'check_all_did_not_throw' => true ),
+			array( 'operator_registered' => $operator_registered, 'seen_operator' => $seen_operator, 'threw' => $threw ),
+			'includes/actions/conditions/condition-manager.php:196-199 (register/action-condition-settings), includes/actions/conditions/condition-instance.php:231-259 (check(), falls through to process-condition filter for unknown operators)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'act-4', 'action-condition custom operator smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// act-5: jet-form-builder/post-modifier/object-properties filter really lets a custom
+	// property class join the Insert/Update Post property collection — driven by calling
+	// the filter directly with a real Object_Properties_Collection (not a full form
+	// submission), confirming ->add()/->has_by_id()/->get_by_id() work as documented.
+	try {
+		if ( ! class_exists( '\\Jet_Form_Builder\\Actions\\Methods\\Object_Properties_Collection' ) ) {
+			throw new \Exception( 'Object_Properties_Collection not loaded' );
+		}
+		if ( ! class_exists( 'Agent_Test_Post_Slug_Property' ) ) {
+			class Agent_Test_Post_Slug_Property extends \Jet_Form_Builder\Actions\Methods\Base_Object_Property {
+				public function get_id(): string { return 'agent_test_post_slug'; }
+				public function get_label(): string { return 'Agent Test Post Slug'; }
+			}
+		}
+
+		$seen_collection_class = null;
+		add_filter( 'jet-form-builder/post-modifier/object-properties', function( $properties ) use ( &$seen_collection_class ) {
+			$seen_collection_class = get_class( $properties );
+			$properties->add( new Agent_Test_Post_Slug_Property() );
+			return $properties;
+		} );
+
+		$collection = apply_filters(
+			'jet-form-builder/post-modifier/object-properties',
+			new \Jet_Form_Builder\Actions\Methods\Object_Properties_Collection( array() )
+		);
+		remove_all_filters( 'jet-form-builder/post-modifier/object-properties' );
+
+		$has_it = $collection->has_by_id( 'agent_test_post_slug' );
+		$found  = null;
+		foreach ( $collection->get_by_id( 'agent_test_post_slug' ) as $prop ) {
+			$found = $prop;
+			break;
+		}
+
+		$pass = ( 'Jet_Form_Builder\\Actions\\Methods\\Object_Properties_Collection' === $seen_collection_class )
+			&& $has_it
+			&& $found instanceof \Jet_Form_Builder\Actions\Methods\Base_Object_Property
+			&& 'Agent Test Post Slug' === $found->get_label();
+
+		agent_test_assert(
+			$suite, 'act-5',
+			'SKILL.md "Adding a custom Insert/Update Post object property": jet-form-builder/post-modifier/object-properties filter receives a real Object_Properties_Collection; ->add()/->has_by_id()/->get_by_id() (not ->push()) are the real methods to register and retrieve a custom Base_Object_Property subclass',
+			$pass,
+			array( 'collection_class' => 'Jet_Form_Builder\\Actions\\Methods\\Object_Properties_Collection', 'has_by_id' => true, 'label_matches' => true ),
+			array( 'seen_collection_class' => $seen_collection_class, 'has_by_id' => $has_it, 'found_label' => $found ? $found->get_label() : null ),
+			'modules/actions-v2/insert-post/properties/post-modifier.php:33-55 (filter site), includes/actions/methods/object-properties-collection.php, includes/classes/arrayable/collection.php:77,107,117 (add()/has_by_id()/get_by_id())'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'act-5', 'post-modifier object-properties filter smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

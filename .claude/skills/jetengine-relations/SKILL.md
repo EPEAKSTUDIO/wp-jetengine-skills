@@ -4,14 +4,14 @@ description: Use when working with JetEngine Relations beyond simple parent/chil
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # JetEngine Relations (deep dive)
 
-**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 6
-tests, `rel-1` through `rel-6`) per `docs/test-harness-guide.md` — 6/6 pass on first
-live run, no corrections needed. See `TEST-REGIMEN.md` for the run log.
+**Live-verified (2026-07-16):** this skill now has a runnable suite (`tests.php`, 9
+tests, `rel-1` through `rel-9`) per `docs/test-harness-guide.md` — 9/9 pass. See
+`TEST-REGIMEN.md` for the run log.
 
 Builds on the base facts in `jetengine-cct-internals` (`jet_engine()->relations` is a
 `Jet_Engine\Relations\Manager`; `get_active_relations()` returns `Relation` objects
@@ -135,6 +135,102 @@ first (or configure at least one meta field on the relation via the admin UI /
 `Data::create_item()` `meta_fields` argument before relying on `update_meta()`) —
 this repo has not yet traced the exact trigger that creates that table, see
 `TEST-REGIMEN.md`.
+
+## Correction: there IS a way to register a relation without the admin UI
+
+The "Storage" section above says there's no public `register_relation()` helper and
+programmatic creation has to go through the same internal CRUD the admin UI uses. That's
+true for the *link* CRUD, but **relation *config* itself can be registered via a filter**
+— found in real Codelab snippets and confirmed at `includes/components/relations/manager.php:357-358`,
+inside `Manager::register_instances()` (runs on `init`):
+
+```php
+$relations = $this->data->get_items();
+$relations = apply_filters( 'jet-engine/relations/raw-relations', $relations );
+```
+
+`$relations` is a plain array of relation-config arrays (the same shape saved by the
+admin UI) keyed however `Data::get_items()` returns them — append your own entry with
+keys like `parent_object` (e.g. `'posts::post'`), `child_object` (e.g. `'cct::orders'`),
+`type` (`'one_to_one'`/`'one_to_many'`/`'many_to_many'`), and optionally `meta_fields`
+(to pre-declare per-link meta so its meta table gets created — see the "Relation meta"
+gotcha above) and `rest_get_enabled`. This runs once per page load on `init`, so it's the
+right way to ship a relation as part of a plugin/theme instead of requiring a manual
+admin-UI setup step on every install.
+
+```php
+add_filter( 'jet-engine/relations/raw-relations', function( $relations ) {
+    $relations[] = array(
+        'parent_object' => 'posts::post',
+        'child_object'  => 'cct::orders',
+        'type'          => 'many_to_many',
+        'rest_get_enabled' => true,
+    );
+    return $relations;
+} );
+```
+
+## Reacting to a link write: `relation/update/before` and `relation/update/after`
+
+`Relation::update()` (the same method documented above under "Creating, updating, and
+removing a relation LINK") fires two real hooks around the actual DB write —
+`relation.php:1462` and `relation.php:1537`:
+
+- **`jet-engine/relation/update/before`** (action, 3 args: `$parent_object`,
+  `$child_object`, `$this` [the `Relation` instance]) — fires before any row is
+  written, so **`get_id()`** here still reflects the state before the update. Note
+  JetEngine's own core code has a commented-out `add_action(...'jet-engine/relation/
+  update/after', ... 'flush_cache' ...)` at `manager.php:423` — a cache-invalidation
+  hook the plugin itself considered wiring here but didn't enable, worth knowing if link
+  reads seem stale immediately after a write.
+- **`jet-engine/relation/update/after`** (action, 4 args: `$parent_object`,
+  `$child_object`, `$item_id` [the new/existing link row's `_ID`], `$this`) — fires after
+  the write succeeds. Use this, not a REST-response check, to trigger side effects (e.g.
+  triggering a related post's `wp_update_post()` to bump its modified date) whenever a
+  link changes, regardless of whether it happened via REST, a JFB "Connect Relation
+  Items" action, or your own `update()` call.
+
+## Resolving an object id from context: the Sources system
+
+Separate from the relation-link CRUD above, JetEngine has a small pluggable system for
+turning "some kind of reference" into a concrete object id — this is what powers the
+"parent/child id source" dropdowns in the Relations admin UI and the JFB "Connect
+Relation Items" action's id-mapping fields. `jet_engine()->relations->sources` is a
+`Jet_Engine\Relations\Sources` instance (`sources.php:13`):
+
+- **`jet-engine/relations/sources-list`** (filter, 1 arg: `$sources` assoc array
+  `key => label`) — `sources.php:20`. Built-in keys: `current_object`, `current_user`,
+  `queried_user`, `query_var`, `object_var`, `wp_object`. Add your own key here to make
+  it selectable in the admin UI.
+- **`$sources->get_id_by_source( $source, $var )`** (`sources.php:57`) resolves a source
+  key to an actual id. For any key not in the built-in `switch` (i.e. your custom one),
+  it falls through to **`jet-engine/relations/object-id-by-source/{source}`** (filter, 2
+  args: `false` default, `$var`) — `sources.php:116` — a dynamic per-source-key filter,
+  exactly mirroring the `object-by-context/{key}` pattern used by JetEngine Listings
+  (see `jetengine-listings-macros`).
+
+```php
+add_filter( 'jet-engine/relations/sources-list', function( $sources ) {
+    $sources['data_store'] = 'Data Store Item';
+    return $sources;
+} );
+add_filter( 'jet-engine/relations/object-id-by-source/data_store', function( $default, $var ) {
+    // $var is whatever the admin UI's paired text field was set to (e.g. a store slug).
+    return \Jet_Engine\Modules\Data_Stores\Module::instance()->stores->get_store( $var )
+        ? get_current_user_id() // resolve to whatever id makes sense for that source
+        : $default;
+}, 10, 2 );
+```
+
+## Custom post-picker items for the "Connect Relation Items" admin UI
+
+For `posts`-type relation sides, the admin UI's item picker (used when manually linking
+items) can be filtered via **`jet-engine/relations/types/posts/get-items`** (filter, 2
+args: `$items` array of `{value, label}`, `$object_name`) —
+`types/posts.php:112` — e.g. to include draft posts, change ordering, or fall back to
+`#ID` when a post has no title. A narrower, status-only variant exists too:
+`jet-engine/relations/types/posts/get-items/post-statuses` (`types/posts.php:75`,
+filters just the `post_status` array passed to the underlying query).
 
 ## JetFormBuilder integration: "Connect Relation Items" action
 

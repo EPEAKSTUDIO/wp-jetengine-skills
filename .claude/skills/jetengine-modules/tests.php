@@ -148,4 +148,142 @@ add_action( 'agent-test/run-suite/jetengine-modules', function() {
 		agent_test_assert( $suite, 'mod-6', 'Custom Meta Tables namespace smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
 	}
 
+	// mod-7: Meta Boxes custom Options Source — the two-filter pairing
+	// (jet-engine/meta-boxes/option-sources registers the name, jet-engine/meta-fields/field-options
+	// supplies the values for a field whose options_source matches) both work end-to-end
+	// through the real Jet_Engine_Meta_Boxes_Option_Sources / Jet_Engine_CPT_Meta classes.
+	try {
+		if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Option_Sources' ) || ! class_exists( 'Jet_Engine_CPT_Meta' ) ) {
+			throw new \Exception( 'Jet_Engine_Meta_Boxes_Option_Sources or Jet_Engine_CPT_Meta not loaded' );
+		}
+
+		add_filter( 'jet-engine/meta-boxes/option-sources', function( $sources ) {
+			$sources['agent_test_source'] = 'Agent Test Source';
+			return $sources;
+		} );
+
+		$captured_field = null;
+		add_filter( 'jet-engine/meta-fields/field-options', function( $options, $field ) use ( &$captured_field ) {
+			if ( 'agent_test_source' !== ( $field['options_source'] ?? '' ) ) {
+				return $options;
+			}
+			$captured_field = $field;
+			$options[]      = array( 'value' => 'agent_test_value', 'label' => 'Agent Test Value' );
+			return $options;
+		}, 10, 3 );
+
+		$sources = Jet_Engine_Meta_Boxes_Option_Sources::instance()->get_allowed_sources();
+		$post_meta = new Jet_Engine_CPT_Meta(); // no-arg constructor early-returns, safe to instantiate directly
+		$options = $post_meta->filter_options_list( array(), array( 'options_source' => 'agent_test_source' ) );
+
+		$source_registered = isset( $sources['agent_test_source'] );
+		$option_present    = is_array( $options ) && in_array( array( 'value' => 'agent_test_value', 'label' => 'Agent Test Value' ), $options, true );
+
+		$pass = $source_registered && $option_present && ( null !== $captured_field );
+
+		agent_test_assert(
+			$suite, 'mod-7',
+			'SKILL.md "Adding a custom Options Source": jet-engine/meta-boxes/option-sources registers a new source name (shows in get_allowed_sources()), and jet-engine/meta-fields/field-options (3-arg: $options, $field, $this) supplies its option list when $field[\'options_source\'] matches — both wired through the real Jet_Engine_Meta_Boxes_Option_Sources / Jet_Engine_CPT_Meta::filter_options_list()',
+			$pass,
+			array( 'source_registered' => true, 'option_present' => true, 'field_options_filter_received_field' => true ),
+			array( 'source_registered' => $source_registered, 'option_present' => $option_present, 'captured_field' => $captured_field ),
+			'includes/components/meta-boxes/fields-options/option-sources.php:411 (get_allowed_sources()), includes/components/meta-boxes/post.php:1544-1546 (filter_options_list(), 3-arg apply_filters)'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'mod-7', 'Meta Boxes custom option-source pair smoke test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// mod-8: Data Stores post-count hooks (post-count-increased/decreased) fire from a
+	// direct increase_post_count()/decrease_post_count() call (these two ARE public,
+	// unlike add_to_store()/remove(), whose before/after hooks per SKILL.md only fire
+	// from the AJAX handlers). Skipped gracefully if the module isn't active (mod-5
+	// already covers that gating).
+	try {
+		$is_active = function_exists( 'jet_engine' ) ? jet_engine()->modules->is_module_active( 'data-stores' ) : false;
+		$fired = array( 'increased' => null, 'decreased' => null );
+		if ( $is_active && class_exists( '\\Jet_Engine\\Modules\\Data_Stores\\Module' ) ) {
+			$manager = \Jet_Engine\Modules\Data_Stores\Module::instance()->stores;
+			$manager->register_store( array( 'slug' => 'agent_test_store', 'type' => 'user-meta', 'count_posts' => true ) );
+			$factory = $manager->get_store( 'agent_test_store' );
+			if ( $factory ) {
+				add_action( 'jet-engine/data-stores/post-count-increased', function( $post_id, $count, $f ) use ( &$fired ) {
+					$fired['increased'] = array( 'post_id' => $post_id, 'count' => $count );
+				}, 10, 3 );
+				add_action( 'jet-engine/data-stores/post-count-decreased', function( $post_id, $count, $f ) use ( &$fired ) {
+					$fired['decreased'] = array( 'post_id' => $post_id, 'count' => $count );
+				}, 10, 3 );
+				$factory->increase_post_count( 999999 );
+				$factory->decrease_post_count( 999999 );
+				remove_all_actions( 'jet-engine/data-stores/post-count-increased' );
+				remove_all_actions( 'jet-engine/data-stores/post-count-decreased' );
+				delete_user_meta( 999999, 'jet_engine_store_count_agent_test_store' ); // cleanup, post_id here is really a user id under user-meta type
+			}
+		}
+		$pass = ( ! $is_active ) || ( is_array( $fired['increased'] ) && 1 === (int) $fired['increased']['count'] && is_array( $fired['decreased'] ) && 0 === (int) $fired['decreased']['count'] );
+		agent_test_assert(
+			$suite, 'mod-8',
+			'SKILL.md "Data Stores" post-count hooks: increase_post_count()/decrease_post_count() (public, unlike add_to_store()) fire post-count-increased/decreased with (post_id, count, factory)',
+			$pass,
+			array( 'module_inactive_or_hooks_fired_with_right_counts' => true ),
+			array( 'is_active' => $is_active, 'fired' => $fired ),
+			'includes/modules/data-stores/inc/stores/factory.php:290-344 — temp store "agent_test_store" (type user-meta) registered/exercised in-request, not persisted'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'mod-8', 'Data Stores post-count hook test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// mod-9: Options Pages — register_new_options_page() is a real public method that
+	// adds an entry to ->registered_pages, matching the SKILL.md claim that this (not a
+	// filter) is the way to ship an options page programmatically.
+	try {
+		$op = function_exists( 'jet_engine' ) ? jet_engine()->options_pages : null;
+		$before = $op ? array_key_exists( 'agent_test_options_page', $op->registered_pages ) : null;
+		if ( $op ) {
+			$op->register_new_options_page( array(
+				'slug'   => 'agent_test_options_page',
+				'title'  => 'Agent Test Options Page',
+				'fields' => array(),
+			) );
+		}
+		$after = $op ? array_key_exists( 'agent_test_options_page', $op->registered_pages ) : null;
+		$is_factory = $after ? is_a( $op->registered_pages['agent_test_options_page'], 'Jet_Engine_Options_Page_Factory' ) : false;
+		$pass = ( false === $before ) && ( true === $after ) && $is_factory;
+		agent_test_assert(
+			$suite, 'mod-9',
+			'SKILL.md "Registering a whole options page programmatically": jet_engine()->options_pages->register_new_options_page($args) adds a real Jet_Engine_Options_Page_Factory entry to ->registered_pages',
+			$pass,
+			array( 'not_registered_before' => true, 'registered_after' => true, 'is_factory_instance' => true ),
+			array( 'before' => $before, 'after' => $after, 'is_factory' => $is_factory ),
+			'includes/components/options-pages/manager.php:122-126 — registers in-request only, not persisted to the site\'s actual options-pages config'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'mod-9', 'Options Pages programmatic registration test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
+	// mod-10: Maps Listings Providers_Manager is reachable (module may or may not be
+	// active) and, if active, get_providers('geocode', 'google') resolves to a real
+	// provider instance with get_location_data() callable.
+	try {
+		$is_active = function_exists( 'jet_engine' ) ? jet_engine()->modules->is_module_active( 'maps-listings' ) : false;
+		$class_loaded = class_exists( '\\Jet_Engine\\Modules\\Maps_Listings\\Module' );
+		$provider_ok = 'not_attempted';
+		if ( $is_active && $class_loaded ) {
+			$providers = \Jet_Engine\Modules\Maps_Listings\Module::instance()->providers;
+			$google = $providers ? $providers->get_providers( 'geocode', 'google' ) : null;
+			$provider_ok = ( $google && method_exists( $google, 'get_location_data' ) );
+		}
+		$consistent = ( $is_active === $class_loaded );
+		$pass = $consistent && ( ! $is_active || true === $provider_ok );
+		agent_test_assert(
+			$suite, 'mod-10',
+			'SKILL.md "Maps Listings": Providers_Manager reachable via Module::instance()->providers iff module active; get_providers(\'geocode\',\'google\') resolves to an instance with get_location_data()',
+			$pass,
+			array( 'is_module_active_matches_class_loaded' => true, 'google_provider_resolves_if_active' => true ),
+			array( 'is_active' => $is_active, 'class_loaded' => $class_loaded, 'provider_ok' => $provider_ok ),
+			'includes/modules/maps-listings/inc/providers-manager.php:23-48'
+		);
+	} catch ( \Throwable $e ) {
+		agent_test_assert( $suite, 'mod-10', 'Maps Listings providers reachability test', false, 'no exception', $e->getMessage(), 'THREW' );
+	}
+
 } );

@@ -151,10 +151,17 @@ across sessions is listed here, confirmed `active: false` unless noted:
   `AGENT-TEST-SUITE:*` snippet below depends on it. See `docs/test-harness-guide.md`.
 - id 23 — "AGENT-TEST-SUITE: jetengine-query-builder" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetengine-query-builder/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetengine-query-builder`.
+  `GET /agent-test/v1/suite/jetengine-query-builder`. Updated 2026-07-16 (gists audit
+  round) with `qb-5`/`qb-6` (after-query-setup/query-items) — first run of `qb-5` FAILED
+  on a wrong assumption about when `after-query-setup` fires (registration-time only,
+  not per-`get_items()` call), fixed by splitting into a live test (qb-5) and a
+  source/precondition check (qb-6); 6/6 pass after the fix.
 - id 24 — "AGENT-TEST-SUITE: jetsmartfilters-query" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetsmartfilters-query/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetsmartfilters-query`.
+  `GET /agent-test/v1/suite/jetsmartfilters-query`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `jsf-6`/`jsf-7`, then again (gists audit round) with `jsf-8`/`jsf-9`
+  (meta-query-row, filter-instance/args, filters/filter-options, range/source-callbacks,
+  post-type/meta-fields-settings, JS event-bus channels); 9/9 pass.
 - id 25 — "ZZZ-DIAG isolated jsf-3 probe" — **deactivated, do not activate/hit its
   route.** One-off diagnostic that directly calls
   `new \Jet_Smart_Filters\Listing\Storage\Controller()` to isolate a crash found while
@@ -168,28 +175,43 @@ across sessions is listed here, confirmed `active: false` unless noted:
   instantiation, root-causing snippet 25's crash.
 - id 27 — "AGENT-TEST-SUITE: jetengine-modules" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetengine-modules/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetengine-modules`. 6/6 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetengine-modules`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `mod-7`, then again (gists audit round) with `mod-8`/`mod-9`/`mod-10`
+  (Data Stores post-count hooks, Options Pages programmatic registration, Maps Listings
+  providers); 10/10 pass.
 - id 28 — "AGENT-TEST-SUITE: jetformbuilder-fields" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetformbuilder-fields/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetformbuilder-fields`. 7/7 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetformbuilder-fields`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `jfb-8`; 8/8 pass.
 - id 29 — "AGENT-TEST-SUITE: jetengine-cct-internals" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetengine-cct-internals/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetengine-cct-internals`. 3/3 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetengine-cct-internals`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `cct-4`, then again (gists audit round) with `cct-5`/`cct-6`
+  (user-has-access, item-to-update, raw-fields, admin-columns filters); 6/6 pass.
 - id 30 — "AGENT-TEST-SUITE: jetengine-relations" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetengine-relations/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetengine-relations`. 6/6 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetengine-relations`. Updated 2026-07-16 (gists audit round)
+  with `rel-7`/`rel-8`/`rel-9` (raw-relations, relation/update/before+after, Sources
+  fallback, posts get-items); 9/9 pass.
 - id 31 — "AGENT-TEST-SUITE: jetengine-mcp-tools" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetengine-mcp-tools/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-mcp-tools`. 4/4 pass as of 2026-07-16.
 - id 32 — "AGENT-TEST-SUITE: jetengine-listings-macros" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetengine-listings-macros/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetengine-listings-macros`. 5/5 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetengine-listings-macros`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `macros-6`, then again (gists audit round) with `macros-7` (custom
+  listing-context two-filter pairing: allowed-context-list + object-by-context/{key});
+  7/7 pass.
 - id 33 — "AGENT-TEST-SUITE: jetformbuilder-actions" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetformbuilder-actions/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetformbuilder-actions`. 3/3 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetformbuilder-actions`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `act-4`, then again (gists audit round) with `act-5` (post-modifier/
+  object-properties extension point) — caught a real doc bug pre-deploy (`->push()`
+  doesn't exist on `Object_Properties_Collection`, real method is `->add()`); 5/5 pass.
 - id 34 — "AGENT-TEST-SUITE: jetformbuilder-hooks" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetformbuilder-hooks/tests.php`. Active; run via
-  `GET /agent-test/v1/suite/jetformbuilder-hooks`. 3/3 pass as of 2026-07-16.
+  `GET /agent-test/v1/suite/jetformbuilder-hooks`. Updated 2026-07-16 (dev-docs/Codelab
+  audit round) with `hooks-4`; 4/4 pass.
 
 None of these run anything while inactive — this is a documentation/tidiness note, not
 a safety issue, **except id 25's route, which is destructive if hit while active** (see

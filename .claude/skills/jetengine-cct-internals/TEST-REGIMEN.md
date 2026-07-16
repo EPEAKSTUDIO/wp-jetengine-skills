@@ -23,6 +23,34 @@ existing fixtures (CCT `agent_test_cct`, relation id 17) rather than creating ne
 No bugs found this round — the source had already been read carefully enough that the
 tests confirmed rather than corrected anything. Test 3/4 below remain not-yet-automated.
 
+## Run log — 2026-07-16 (addendum): CSV export filter added, 4/4 pass
+
+New `SKILL.md` section "Reformatting a field's value during CSV export", sourced from a
+real Codelab snippet exporting repeater fields as readable text. **cct-4** confirms
+`jet-engine/custom-content-types/export/value` and
+`jet-engine/custom-content-types/export/cvs-separator` (note: "cvs" not "csv" — a real
+misspelling in the plugin's own hook name) are both still present in the currently-
+installed plugin source, via a live file read rather than invoking `Export::send_items()`
+directly — that method ends in `Jet_Engine_Tools::file_download()`, which sends
+headers and `exit()`s, making it unsafe to call from inside a REST request. PASS.
+
+## Run log — 2026-07-16 (second addendum): access/schema/write-gating filters added, 6/6 pass
+
+New `SKILL.md` section "Gating access, reshaping schema, and rewriting a pending write",
+sourced from real Codelab/Gist snippets found auditing Crocoblock's public GitHub Gists
+account (305 gists; see repo `HANDOFF.md`). **cct-5** drives `user-has-access` and
+`item-to-update` live against the `agent_test_cct` fixture — forces `user_has_access()`
+to return `false` and confirms the filter saw the right factory, then confirms an
+`item-to-update` filter's mutation of the `$item` array is actually what gets persisted
+(row title after the write matches the filter's override, not the original submitted
+value) — PASS, row self-deletes after the assertion. **cct-6** is a source-presence
+check only for `factory/raw-fields` and `admin-columns`, since both only fire once at
+CCT registration on `init` (fields/columns are cached on the `Factory` instance after
+that) and can't be re-triggered by adding a filter mid-request the way cct-5's two
+filters can — PASS.
+
+**Final result: 6/6 pass**, no fixes needed this round.
+
 ## Test 3 (not yet run): media field `value_format` actually changes what's returned, not just what's stored
 
 **Claim being tested:** `SKILL.md`'s "Media fields" section says a `media` field stores

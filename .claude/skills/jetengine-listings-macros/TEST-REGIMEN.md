@@ -26,11 +26,38 @@ Code Snippets snippet id 32, run via
 - **macros-5** (unregistered-but-valid tag is a registry-level miss, same literal output):
   PASS — supersedes the original Test 3 (below, trimmed).
 
+## Run log — 2026-07-16 (addendum): subclassing a built-in macro added, 6/6 pass
+
+New `SKILL.md` section "Subclassing a built-in macro instead of the abstract base",
+sourced from a real Codelab snippet (extending the shipped `%query_results%` macro to
+keep falsy/empty-valued items its default `array_filter()` drops). **macros-6** defines
+a real subclass of `\Jet_Engine\Query_Builder\Macros\Query_Results_Macro` (not
+`Jet_Engine_Base_Macros` directly), registers it, and confirms it resolves through
+`do_macros()` the same way as any other macro — PASS, and cross-confirms
+`Manager::instance()->get_query_by_id()` as a working Query Builder accessor from a
+third independent call site (previously corroborated in `jetengine-query-builder` and
+the Codelab snippet itself).
+
 Still not automated (both genuinely need a live listing render/page builder, not doable
 via REST alone): Test 4 (context resolves to the current grid item), Test 5 (CCT rows
 resolve via `cct_slug` duck-typing), Test 6 (Elementor/Bricks widget parity), and the
 JSON-config-block variant of macro syntax (`%macro%{"fallback":"..."}`) — `tests.php`
 only exercises the plain and pipe-arg forms, not the trailing JSON-config block.
+
+## Run log — 2026-07-16 (second addendum): custom listing-context registration added, 7/7 pass
+
+New `SKILL.md` section "Registering a custom context — extending get_object_by_context()
+itself", sourced from real Codelab/Gist snippets found auditing Crocoblock's public
+GitHub Gists account (305 gists; see repo `HANDOFF.md`) — several independent snippets
+register custom contexts (`post_parent`, `post_featured_image`, "object previous in
+stack") through this exact two-filter pairing. **macros-7** drives both filters live —
+`jet-engine/listings/allowed-context-list` (confirms the new key appears in
+`allowed_context_list()`'s output) and the dynamic `jet-engine/listings/data/
+object-by-context/{key}` filter (confirms `Data::get_object_by_context()` resolves it) —
+PASS, same "both halves required" shape as the Meta Boxes Options Source pairing in
+`jetengine-modules`.
+
+**Final result: 7/7 pass**, no fixes needed this round.
 
 ## Test 1 (remaining open half): JSON-config-block syntax variant
 

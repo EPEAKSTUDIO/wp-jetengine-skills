@@ -27,6 +27,20 @@ submission, repeater-field dotted-path resolution against actually-submitted dat
 *other*, differently-named validation-rule filter exists beyond the one specific guess
 `jfb-5` checked (Test 4's fuller version).
 
+## Run log — 2026-07-16 (addendum): media-field guest-upload gate added, 8/8 pass
+
+New `SKILL.md` section "Media field: guest uploads are blocked by default", sourced from
+a real Codelab snippet. **jfb-8** instantiates `Media_Field_Parser` directly, calls
+`set_context( new Parser_Context() )` first (`get_context()` requires this —
+`field-data-parser.php:181`, a gotcha the first draft of this test tripped on: it fataled
+with "Return value must be of type Parser_Context, null returned" until the missing
+`set_context()` call was added), then confirms `jet-form-builder/media-field/before-upload`
+fires with the parser instance itself and that `->get_context()->allow_for_guest()`/
+`->update_setting()` are real, callable methods. PASS after the fix. Doesn't exercise
+`get_response()`'s actual upload path (needs a real uploaded file), so the "guests can
+now actually upload" end-to-end claim is confirmed only at the hook/context-API level,
+not via a full submission.
+
 ## Test 1 (not yet run): `jet_fb_context()->get_value()` reads submitted values inside a Call Hook
 
 **Claim:** `jet_fb_context()` is the correct generic accessor for a submitted field's

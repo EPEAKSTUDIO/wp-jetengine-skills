@@ -69,6 +69,33 @@ static map is genuinely shared/mutable from outside the class, not per-instance.
 `false`** (not `null`, not `WP_Error`) — promoted from "unconfirmed" to a documented
 fact in `SKILL.md`.
 
+## Run log — 2026-07-16 (addendum): after-query-setup + query/items hooks added, first run caught a real test bug, 6/6 pass after fix
+
+New `SKILL.md` section "Rewriting a query's assembled args or its returned items",
+sourced from real Codelab/Gist snippets — by far the two most commonly used Query
+Builder hooks in the wild (many snippets use `after-query-setup` to rewrite
+`post__in`/`post__not_in` or `tax_query`, or `query/items` to convert query results into
+`WC_Product` objects).
+
+**First run: qb-5 FAILED** (`after_setup_seen: null`). Root cause: `qb-5`'s original
+version assumed `after-query-setup` would re-fire on every `get_items()` call, the same
+way `query/items` does. It doesn't — `Manager::get_query_by_id()` returns an
+**already-constructed** object from its `->queries[]` cache (`manager.php:442`), and
+`after_query_setup()`/its `do_action` only ever run once, during that object's initial
+construction on `init` (`queries/base.php:392-397`) — long before any REST request (and
+this suite) runs. A filter registered mid-request is structurally too late to ever see
+it — the same class of gotcha already documented for CCT's `raw-fields`/`admin-columns`
+and Relations' `raw-relations` (all registration-time-only hooks).
+
+**Fixed**: split into **qb-5** (query/items only, still driven live — PASS) and **qb-6**
+(after-query-setup: source-presence check + a live confirmation that the query-16
+fixture's `final_query` already contains `_query_type`, proving the hook's precondition
+without needing to catch it firing in real time) — PASS.
+
+**Final result: 6/6 pass** after the fix. This is the harness working as designed — a
+wrong assumption about *when* a hook fires, caught by an actual failing assertion rather
+than by re-reading the source more carefully after the fact.
+
 ## Test 2 (not yet run): `get_query_args()` shape differs by query type
 
 **Claim:** the args shape returned by `get_query_args()` depends entirely on the

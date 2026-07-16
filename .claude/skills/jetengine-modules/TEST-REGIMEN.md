@@ -42,6 +42,46 @@ No meta-box field groups, options pages, or data-store fixtures exist yet. Tests
 the Dynamic Visibility module being inactive on this site. See `tests.php` for what's
 already automated (reachability layer only).
 
+## Run log — 2026-07-16 (addendum): Meta Boxes custom Options Source pair added, 7/7 pass
+
+New `SKILL.md` callout under "Meta Boxes" for registering a custom checkbox/radio/select
+Options Source, sourced from a real Codelab snippet (a "User Roles" options source).
+**mod-7** end-to-end drives the real two-filter pairing —
+`jet-engine/meta-boxes/option-sources` (registers the source name via
+`Jet_Engine_Meta_Boxes_Option_Sources::instance()->get_allowed_sources()`) and
+`jet-engine/meta-fields/field-options` (supplies the option list via
+`Jet_Engine_CPT_Meta::filter_options_list()`) — confirming both fire and that the second
+filter is genuinely **3-arg** (`$options, $field, $this`), not 2-arg as the source
+Codelab snippet itself registered it (harmless there since PHP ignores unrequested
+trailing args, but `SKILL.md`'s example is written with the correct `10, 3`). PASS.
+
+## Run log — 2026-07-16 (second addendum): Data Stores hooks, Options Pages registration, Maps Listings added, 10/10 pass
+
+New `SKILL.md` sections (Data Stores AJAX-only hook gotcha + post-count hooks,
+programmatic Options Page registration, Maps Listings geocode providers) sourced from
+real Codelab/Gist snippets found auditing Crocoblock's public GitHub Gists account (305
+gists; see repo `HANDOFF.md`). A Profile Builder section was also added but has no new
+automated test — it only adds filter/hook documentation, no new callable surface beyond
+what mod-1 through mod-9 already reach.
+
+**mod-8** registers a throwaway `agent_test_store` (type `user-meta`, in-request only,
+not persisted) and drives `increase_post_count()`/`decrease_post_count()` directly to
+confirm `post-count-increased`/`post-count-decreased` fire with the right `$count`
+values — since Data Stores is inactive on this sandbox (same as `mod-5`'s finding), this
+currently passes via the "module inactive" branch, not a real exercise of the hooks;
+re-run once/if the module is activated. **mod-9** confirms
+`register_new_options_page()` really does add a `Jet_Engine_Options_Page_Factory` entry
+to `->registered_pages` — PASS, exercised for real (Options Pages is a core, always-on
+component, not gated). **mod-10** confirms `Providers_Manager` reachability and, since
+Maps Listings is also inactive on this sandbox, mostly exercises the "module inactive,
+consistency-only" branch like mod-4/mod-5/mod-8.
+
+**Final result: 10/10 pass.** Notable: three of the ten tests (`mod-4`, `mod-5`, `mod-8`,
+`mod-10` — four, not three) currently only assert internal consistency because their
+modules (Dynamic Visibility, Data Stores, Maps Listings) are inactive on this sandbox —
+if this repo's test site ever gets those modules turned on, re-run the suite to get a
+real (not just gating-consistency) pass for those hook/method bodies.
+
 ## Test 1 (not yet run): `get_fields_for_context()` returns empty before `init` priority 11
 
 **Claim:** calling `jet_engine()->meta_boxes->get_fields_for_context()` before `init`

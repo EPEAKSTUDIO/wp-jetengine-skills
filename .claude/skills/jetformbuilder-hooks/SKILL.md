@@ -4,7 +4,7 @@ description: Use when you need to run custom PHP against a JetFormBuilder form s
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # JetFormBuilder Hooks
@@ -52,6 +52,38 @@ run arbitrary PHP against a submission **without** writing a custom action class
    This is the real "after everything, success-or-fail" hook. **Takes 2 args** — a
    callback registered with the default `add_action` arg count (1) will silently miss
    the success flag; register with `10, 2`.
+
+## Filtering which actions actually run (DEFAULT.PROCESS executors)
+
+Step 5 above ("Actions execute") is really one "event" object,
+`Default_Process_Event` (`includes/actions/events/default-process/default-process-event.php`),
+whose `executors()` method is what actually returns the list of things to run:
+
+```php
+public function executors(): array {
+    return apply_filters(
+        'jet-form-builder/default-process-event/executors',
+        array( new Default_Process_Executor() )
+    );
+}
+```
+
+The filter receives/returns an **array of executor objects**, not action instances or
+IDs directly — by default just one `Default_Process_Executor` that walks all configured
+action steps. This is the extension point real snippets use to conditionally strip out
+an executor, e.g. skipping the Payment Gateways module's checkout-redirect executor when
+a price field is `0`: filter the array, `instanceof`/class-name-check each entry, and
+`unset()` the ones you don't want. This is a coarser lever than
+`before-do-action/{action_id}` (step-scoped) or action Conditions (per-step, see
+`jetformbuilder-actions`) — it operates on the whole executor list before any action
+runs.
+
+**Payment Gateways module** (`modules/gateways/module.php`) is a real JetFormBuilder
+subsystem (PayPal/Stripe checkout wired as a special action executor) that isn't
+inventoried in depth by any of these three skills yet — `jet_form_builder()->module( 'post-type' )->get_gateways()`
+is one real accessor into its config, seen filtering the executors list above. Treat
+anything beyond "the executors filter exists and gateway config is reachable via that
+accessor" as unverified; a deeper dive is open work.
 
 ## Hooking a form action step without writing a custom action class
 
