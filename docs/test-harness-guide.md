@@ -44,7 +44,7 @@ this **once** as a permanently-active snippet named exactly
 - Two REST routes: `GET /agent-test/v1/suite/{suite}` (runs it, returns the JSON above)
   and `GET /agent-test/v1/suites` (lists every currently-registered/active suite).
 
-**One suite snippet per skill**, e.g. `.claude/skills/jetengine-query-builder/tests.php`
+**One suite snippet per skill**, e.g. `skills/jetengine-query-builder/tests.php`
 (this repo file is the source of truth for that suite). Deploy it as its own snippet
 named `AGENT-TEST-SUITE: <skill-slug>`. Its whole body is:
 

@@ -234,7 +234,7 @@ Read `jet-elements.php`, `includes/class-jet-elements-integration.php`,
 (`plugins/jet-elements/`), plus grepping every `jet-elements/*` hook across
 `includes/addons/*.php` to confirm the carousel-options pattern's five real call sites.
 Cross-checked the one gist already logged in
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`'s "JetElements" section
+`other-plugins-backlog/OTHER-PLUGINS.md`'s "JetElements" section
 (`jet-elements/jet-carousel/carousel-options`, adaptive-height gist) — confirmed as a
 real hook, folded into the broader carousel-options section above rather than
 documented standalone. Not yet verified against a running site — JetElements was not

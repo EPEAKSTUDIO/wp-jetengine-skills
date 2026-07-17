@@ -83,7 +83,7 @@ filters:
   `action`/`text`/`dates`/`details`/`location` query-arg array, **before** being passed
   to `add_query_arg()`], `$booking`) — **the** hook to add e.g. `location`/`details`
   content or change the event title, matching the gist-sourced lead in
-  `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`. `add_query_arg()` runs
+  `other-plugins-backlog/OTHER-PLUGINS.md`. `add_query_arg()` runs
   `array_filter()` on the result first, so setting a key to an empty string/false/null
   drops it from the URL rather than emitting it blank.
 - **`jet-booking/google-calendar-url/utc-timezone`** (filter, default `false`) — toggles
@@ -103,7 +103,7 @@ docs/gists) — string literals below are exact matches found in that file.
 callback )` / `.applyFilters( name, value, ...args )` — a shared filter-hook bus, **not**
 JetBooking-specific infrastructure (the same `JetPlugins.hooks` object is used by
 JetFormBuilder and other Crocoblock front-end JS; see
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`'s "Shared JetPlugins framework"
+`other-plugins-backlog/OTHER-PLUGINS.md`'s "Shared JetPlugins framework"
 note). Real filter names fired by JetBooking (dot-separated, confirmed at the cited
 `booking-init.js` line numbers):
 
@@ -186,6 +186,6 @@ literal rather than trusting the gist descriptions) in JetBooking 4.1.2.1 source
 (`plugins/jet-booking/`) — confirming every hook name, arg count, and JS
 filter/trigger/global-object claim above by direct file:line citation, and cross-checking
 the `pre-cart-info` naming collision against
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`'s already-verified Jet
+`other-plugins-backlog/OTHER-PLUGINS.md`'s already-verified Jet
 Appointments Booking split. Not yet verified against a running site — JetBooking is not
 installed on the sandbox; see `TEST-REGIMEN.md`.

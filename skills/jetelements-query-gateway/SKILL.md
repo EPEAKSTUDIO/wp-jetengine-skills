@@ -133,7 +133,7 @@ it's the one JetEngine's own compatibility code was written against.
   filters JetEngine registers identically for each plugin** (`manager.php:46-48`) — a
   fix applied to one does not automatically apply to the other; JetTabs has its own,
   unaudited copy of this same integration (out of scope for this repo — see
-  `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`).
+  `other-plugins-backlog/OTHER-PLUGINS.md`).
 
 ## How this was verified
 

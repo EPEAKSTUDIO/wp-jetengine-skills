@@ -204,7 +204,7 @@ Three layers, easy to conflate — only the third is genuinely JetMenu's own reu
    Elementor widget instance initializes on the front end — the normal way to hook a
    custom Elementor widget's JS init, applied here to JetMenu's own three widgets.
 2. **`window.JetPlugins.hooks`** — the shared cross-plugin JS framework referenced in
-   this repo's `_other-plugins-backlog/OTHER-PLUGINS.md`. **JetMenu is only a consumer,
+   this repo's `other-plugins-backlog/OTHER-PLUGINS.md`. **JetMenu is only a consumer,
    not an owner, of this framework** — confirmed exactly one call site in the shipped
    public bundle: `window.JetPlugins.hooks.doAction(window.JetPlugins.hookNameFromBlock(t.dataset.isBlock), jQuery(t))`
    (`assets/public/js/jet-menu-public-scripts.js`, fired once per `[data-is-block*="/"]`

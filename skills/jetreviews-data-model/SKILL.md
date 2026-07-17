@@ -256,7 +256,7 @@ in JetReviews For Elementor 3.1.0.1 source (`plugins/jet-reviews/`) — confirmi
 table schema, hook signature, and class-construction path by direct file:line citation,
 including tracing each "Manager" class's constructor for unconditional `require` calls
 before ever suggesting a direct-instantiation pattern (per this repo's safety lesson in
-`HANDOFF.md`). Cross-checked against `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`'s
+`HANDOFF.md`). Cross-checked against `other-plugins-backlog/OTHER-PLUGINS.md`'s
 "JetReviews" gist list (`jet-reviews/user-manager/raw-user-data`,
 `jet-reviews/source/source-user/current-id`, `jet-reviews/structure-data/types` — all
 three confirmed present verbatim in source, not just in the gist description). Not yet

@@ -139,7 +139,7 @@ the manager itself performs no dependency check before instantiating.
 
 ## Correction to the gist-research backlog: the `lodash` script-dependency bug is already fixed
 
-The backlog (`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`, "## JetPopup")
+The backlog (`other-plugins-backlog/OTHER-PLUGINS.md`, "## JetPopup")
 lists a gist "missing `lodash` script dependency fix for `jet-popup-block-editor`." In
 the currently-checked-out 2.2.1 source, `'lodash'` **is already present** in that
 script's dependency array:

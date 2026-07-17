@@ -150,14 +150,14 @@ across sessions is listed here, confirmed `active: false` unless noted:
   `test-harness/core-snippet.php`. **Keep this one active permanently** — every
   `AGENT-TEST-SUITE:*` snippet below depends on it. See `docs/test-harness-guide.md`.
 - id 23 — "AGENT-TEST-SUITE: jetengine-query-builder" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetengine-query-builder/tests.php`. Active; run via
+  Source of truth: `skills/jetengine-query-builder/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-query-builder`. Updated 2026-07-16 (gists audit
   round) with `qb-5`/`qb-6` (after-query-setup/query-items) — first run of `qb-5` FAILED
   on a wrong assumption about when `after-query-setup` fires (registration-time only,
   not per-`get_items()` call), fixed by splitting into a live test (qb-5) and a
   source/precondition check (qb-6); 6/6 pass after the fix.
 - id 24 — "AGENT-TEST-SUITE: jetsmartfilters-query" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetsmartfilters-query/tests.php`. Active; run via
+  Source of truth: `skills/jetsmartfilters-query/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetsmartfilters-query`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `jsf-6`/`jsf-7`, then again (gists audit round) with `jsf-8`/`jsf-9`
   (meta-query-row, filter-instance/args, filters/filter-options, range/source-callbacks,
@@ -174,7 +174,7 @@ across sessions is listed here, confirmed `active: false` unless noted:
   that confirmed `DB_Storage`/`Storage\Controller` were already declared before any
   instantiation, root-causing snippet 25's crash.
 - id 27 — "AGENT-TEST-SUITE: jetengine-modules" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetengine-modules/tests.php`. Active; run via
+  Source of truth: `skills/jetengine-modules/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-modules`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `mod-7`, then again (gists audit round) with `mod-8`/`mod-9`/`mod-10`
   (Data Stores post-count hooks, Options Pages programmatic registration, Maps Listings
@@ -183,36 +183,36 @@ across sessions is listed here, confirmed `active: false` unless noted:
   (`Stores\Factory not found` — a lazy-`require` gotcha, now documented in `SKILL.md`),
   fixed; 10/10 pass, all four previously gating-only tests now exercising real behavior.
 - id 28 — "AGENT-TEST-SUITE: jetformbuilder-fields" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetformbuilder-fields/tests.php`. Active; run via
+  Source of truth: `skills/jetformbuilder-fields/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetformbuilder-fields`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `jfb-8`; 8/8 pass.
 - id 29 — "AGENT-TEST-SUITE: jetengine-cct-internals" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetengine-cct-internals/tests.php`. Active; run via
+  Source of truth: `skills/jetengine-cct-internals/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-cct-internals`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `cct-4`, then again (gists audit round) with `cct-5`/`cct-6`
   (user-has-access, item-to-update, raw-fields, admin-columns filters); 6/6 pass.
 - id 30 — "AGENT-TEST-SUITE: jetengine-relations" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetengine-relations/tests.php`. Active; run via
+  Source of truth: `skills/jetengine-relations/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-relations`. Updated 2026-07-16 (gists audit round)
   with `rel-7`/`rel-8`/`rel-9` (raw-relations, relation/update/before+after, Sources
   fallback, posts get-items); 9/9 pass.
 - id 31 — "AGENT-TEST-SUITE: jetengine-mcp-tools" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetengine-mcp-tools/tests.php`. Active; run via
+  Source of truth: `skills/jetengine-mcp-tools/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-mcp-tools`. 4/4 pass as of 2026-07-16.
 - id 32 — "AGENT-TEST-SUITE: jetengine-listings-macros" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetengine-listings-macros/tests.php`. Active; run via
+  Source of truth: `skills/jetengine-listings-macros/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-listings-macros`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `macros-6`, then again (gists audit round) with `macros-7` (custom
   listing-context two-filter pairing: allowed-context-list + object-by-context/{key});
   7/7 pass.
 - id 33 — "AGENT-TEST-SUITE: jetformbuilder-actions" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetformbuilder-actions/tests.php`. Active; run via
+  Source of truth: `skills/jetformbuilder-actions/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetformbuilder-actions`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `act-4`, then again (gists audit round) with `act-5` (post-modifier/
   object-properties extension point) — caught a real doc bug pre-deploy (`->push()`
   doesn't exist on `Object_Properties_Collection`, real method is `->add()`); 5/5 pass.
 - id 34 — "AGENT-TEST-SUITE: jetformbuilder-hooks" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetformbuilder-hooks/tests.php`. Active; run via
+  Source of truth: `skills/jetformbuilder-hooks/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetformbuilder-hooks`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `hooks-4`; 4/4 pass.
 
@@ -224,19 +224,19 @@ query id 16 ("AGENT TEST Query - CCT test items"), and relation id 17 ("AGENT TE
 relation (post -> agent_test_cct)").
 
 - id 35 — "AGENT-TEST-SUITE: jetappointments-core" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetappointments-core/tests.php`. Active; run via
+  Source of truth: `skills/jetappointments-core/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetappointments-core`. 5/5 pass as of 2026-07-16 (first run
   was 4/5 — `apb-4` was a test-only bug, a single-line `strpos()` check against a call
   site whose real args wrap across multiple lines; fixed with a whitespace-tolerant regex).
 - id 36 — "AGENT-TEST-SUITE: jetappointments-integrations" — runnable suite for that
-  skill. Source of truth: `.claude/skills/jetappointments-integrations/tests.php`. Active;
+  skill. Source of truth: `skills/jetappointments-integrations/tests.php`. Active;
   run via `GET /agent-test/v1/suite/jetappointments-integrations`. 3/3 pass as of
   2026-07-16.
 - id 37 — "AGENT-TEST-SUITE: jetelements-widgets" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetelements-widgets/tests.php`. Active; run via
+  Source of truth: `skills/jetelements-widgets/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetelements-widgets`. 7/7 pass as of 2026-07-16.
 - id 38 — "AGENT-TEST-SUITE: jetelements-query-gateway" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetelements-query-gateway/tests.php`. Active; run via
+  Source of truth: `skills/jetelements-query-gateway/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetelements-query-gateway`. 4/4 pass as of 2026-07-16 (first
   run was 3/4 on a fatal — a test passed `$widget = null` into a hook a real JetEngine
   listener consumes, fixed with a fake widget stub; second run was still 3/4 because the
@@ -245,7 +245,7 @@ relation (post -> agent_test_cct)").
   callback reference. See that skill's TEST-REGIMEN.md for the full story — a good
   example of a live suite mutating shared site state across its own assertions.).
 - id 39 — "AGENT-TEST-SUITE: jetwoobuilder-templates" — runnable suite for that skill.
-  Source of truth: `.claude/skills/jetwoobuilder-templates/tests.php`. Active; run via
+  Source of truth: `skills/jetwoobuilder-templates/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetwoobuilder-templates`. 8/8 pass as of 2026-07-16, no fixes
   needed (WooCommerce itself isn't installed on this sandbox, but the suite was written
   defensively enough to degrade to correct results rather than fatal).
@@ -278,30 +278,30 @@ Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39)
 `curl`-based session on Linux/macOS shouldn't hit either one.
 
 - id 40 — "AGENT-TEST-SUITE: jetbooking-calendar" — Source of truth:
-  `.claude/skills/jetbooking-calendar/tests.php`. Active; run via
+  `skills/jetbooking-calendar/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetbooking-calendar`. 7/7 pass as of 2026-07-16 (first run,
   once JetBooking activated), no fixes needed.
 - id 41 — "AGENT-TEST-SUITE: jetbooking-integrations" — Source of truth:
-  `.claude/skills/jetbooking-integrations/tests.php`. Active; run via
+  `skills/jetbooking-integrations/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetbooking-integrations`. 6/6 pass as of 2026-07-16, no fixes
   needed.
 - id 42 — "AGENT-TEST-SUITE: jetmenu-structure" — Source of truth:
-  `.claude/skills/jetmenu-structure/tests.php`. Active; run via
+  `skills/jetmenu-structure/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetmenu-structure`. First run 500'd the whole request
   (uncatchable "Cannot redeclare class" fatal) — isolated to `jms-4` calling
   `\Jet_Menu\Options_Manager::get_instance()` directly, which turned out to be a real doc
   bug (SKILL.md had called this "just a desync," not a fatal — corrected). 10/10 pass
   after the fix.
 - id 43 — "AGENT-TEST-SUITE: jetmenu-extensibility" — Source of truth:
-  `.claude/skills/jetmenu-extensibility/tests.php`. Active; run via
+  `skills/jetmenu-extensibility/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetmenu-extensibility`. 7/7 pass as of 2026-07-16 (first run
   6/7 on a test-only ordering bug — see that skill's TEST-REGIMEN.md).
 - id 44 — "AGENT-TEST-SUITE: jetreviews-data-model" — Source of truth:
-  `.claude/skills/jetreviews-data-model/tests.php`. Active; run via
+  `skills/jetreviews-data-model/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetreviews-data-model`. 6/6 pass as of 2026-07-16, no fixes
   needed.
 - id 45 — "AGENT-TEST-SUITE: jetreviews-conditions" — Source of truth:
-  `.claude/skills/jetreviews-conditions/tests.php`. Active; run via
+  `skills/jetreviews-conditions/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetreviews-conditions`. 5/5 pass as of 2026-07-16, no fixes
   needed.
 - ids 46-51, 64-72, 74 — one-off `ZZZ-DIAG` isolation probes used to bisect the
@@ -310,57 +310,57 @@ Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39)
   skill's TEST-REGIMEN.md for what each isolated). All deactivated after use, per this
   repo's established pattern (see ids 25/26).
 - id 52 — "AGENT-TEST-SUITE: jetblog-query-pipeline" — Source of truth:
-  `.claude/skills/jetblog-query-pipeline/tests.php`. Active; run via
+  `skills/jetblog-query-pipeline/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetblog-query-pipeline`. 5/5 pass as of 2026-07-16 (first run
   3/5 — Elementor version-specific widget-constructor validation issues, resolved by
   testing the underlying filter mechanisms directly instead of through a fully-live
   widget instance; see that skill's TEST-REGIMEN.md).
 - id 53 — "AGENT-TEST-SUITE: jetblog-widgets-extensibility" — Source of truth:
-  `.claude/skills/jetblog-widgets-extensibility/tests.php`. Active; run via
+  `skills/jetblog-widgets-extensibility/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetblog-widgets-extensibility`. 6/6 pass as of 2026-07-16
   (first run 500'd — Elementor's lazy widget-registration vs. a manually-guarded
   `require` race condition, then 5/6 on a strict-bool test bug — both fixed).
 - id 54 — "AGENT-TEST-SUITE: jetcomparewishlist-data-store" — Source of truth:
-  `.claude/skills/jetcomparewishlist-data-store/tests.php`. Active; run via
+  `skills/jetcomparewishlist-data-store/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetcomparewishlist-data-store`. 6/6 pass as of 2026-07-16 (2
   of 6 gracefully skip since Wishlist/Compare are disabled by default on this site).
 - id 55 — "AGENT-TEST-SUITE: jetcomparewishlist-integrations" — Source of truth:
-  `.claude/skills/jetcomparewishlist-integrations/tests.php`. Active; run via
+  `skills/jetcomparewishlist-integrations/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetcomparewishlist-integrations`. 5/5 pass as of 2026-07-16,
   no fixes needed.
 - id 56 — "AGENT-TEST-SUITE: jetpopup-conditions" — Source of truth:
-  `.claude/skills/jetpopup-conditions/tests.php`. Active; run via
+  `skills/jetpopup-conditions/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetpopup-conditions`. 6/6 pass as of 2026-07-16, no fixes
   needed.
 - id 57 — "AGENT-TEST-SUITE: jetpopup-extensibility" — Source of truth:
-  `.claude/skills/jetpopup-extensibility/tests.php`. Active; run via
+  `skills/jetpopup-extensibility/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetpopup-extensibility`. 7/7 pass as of 2026-07-16 (first run
   6/7 — the CPT's capabilities were already baked in before the test's filter was added;
   fixed by unregistering/re-registering the CPT with the filter active).
 - id 58 — "AGENT-TEST-SUITE: jetpopup-render-triggers" — Source of truth:
-  `.claude/skills/jetpopup-render-triggers/tests.php`. Active; run via
+  `skills/jetpopup-render-triggers/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetpopup-render-triggers`. 5/5 pass as of 2026-07-16, no
   fixes needed.
 - id 59 — "AGENT-TEST-SUITE: jettabs-query-gateway" — Source of truth:
-  `.claude/skills/jettabs-query-gateway/tests.php`. Active; run via
+  `skills/jettabs-query-gateway/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jettabs-query-gateway`. 4/4 pass as of 2026-07-16, no fixes
   needed.
 - id 60 — "AGENT-TEST-SUITE: jettabs-widgets" — Source of truth:
-  `.claude/skills/jettabs-widgets/tests.php`. Active; run via
+  `skills/jettabs-widgets/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jettabs-widgets`. 4/4 pass as of 2026-07-16, no fixes needed.
 - id 61 — "AGENT-TEST-SUITE: jetthemecore-locations" — Source of truth:
-  `.claude/skills/jetthemecore-locations/tests.php`. Active; run via
+  `skills/jetthemecore-locations/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetthemecore-locations`. 4/4 pass as of 2026-07-16 after
   fixing a real doc bug (WooCommerce registers 6 additional structures/locations beyond
   the documented "core 6/4") and a flaky test relying on a hardcoded filter name that
   should have been computed dynamically — see that skill's TEST-REGIMEN.md.
 - id 62 — "AGENT-TEST-SUITE: jetthemecore-template-conditions" — Source of truth:
-  `.claude/skills/jetthemecore-template-conditions/tests.php`. Active; run via
+  `skills/jetthemecore-template-conditions/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetthemecore-template-conditions`. 5/5 pass as of 2026-07-16
   after fixing a real doc bug (`register_cpt_conditions()` fatals on a second call, an
   unconditional-`require` landmine the doc had missed) plus 2 test-only bugs.
 - id 63 — "AGENT-TEST-SUITE: jetthemecore-theme-builder" — Source of truth:
-  `.claude/skills/jetthemecore-theme-builder/tests.php`. Active; run via
+  `skills/jetthemecore-theme-builder/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetthemecore-theme-builder`. 4/4 pass as of 2026-07-16 after
   fixing 3 test-only bugs (wrong response-key extraction, a missing
   `update_page_template_conditions()` call, and a missing `_jet_template_type` post
@@ -368,17 +368,17 @@ Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39)
 - id 73 — one-off diagnostic dumping live Theme Builder Page Template conditions state
   during the `jetthemecore-locations` flakiness investigation. Deactivated after use.
 - id 75 — "AGENT-TEST-SUITE: jetengine-booking-forms" — Source of truth:
-  `.claude/skills/jetengine-booking-forms/tests.php`. Active; run via
+  `skills/jetengine-booking-forms/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-booking-forms`. 12/12 pass as of 2026-07-17, clean
   first run (no plugin or test bugs) after Dynamic Calendar + Forms (Legacy) modules
   were activated on the sandbox.
 - id 76 — "AGENT-TEST-SUITE: jetformbuilder-payment-gateways" — Source of truth:
-  `.claude/skills/jetformbuilder-payment-gateways/tests.php`. Active; run via
+  `skills/jetformbuilder-payment-gateways/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetformbuilder-payment-gateways`. 9/9 pass as of 2026-07-17,
   clean first run against the real PayPal gateway already registered on this sandbox (no
   live credentials needed — schema/class/hook-level assertions only).
 - id 77 — "AGENT-TEST-SUITE: jetengine-rest-api" — Source of truth:
-  `.claude/skills/jetengine-rest-api/tests.php`. Active; run via
+  `skills/jetengine-rest-api/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetengine-rest-api`. 11/11 pass as of 2026-07-17, after
   fixing 2 test-only bugs (a lazy-`require`-behind-a-gate class-loading gotcha in
   Relations' `Public_Controller`, same shape as `jetengine-modules`' `Stores\Factory`

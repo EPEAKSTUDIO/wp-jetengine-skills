@@ -51,8 +51,8 @@ metadata:
 ## Scaffolding a new skill
 
 ```
-mkdir -p .claude/skills/<skill-name>/references
+mkdir -p skills/<skill-name>/references
 ```
 
-Then write `.claude/skills/<skill-name>/SKILL.md` following the frontmatter and section
+Then write `skills/<skill-name>/SKILL.md` following the frontmatter and section
 shape above.

@@ -7,7 +7,7 @@ round — trust the most recent section for "what's true right now," and see
 
 ## What this repo is
 
-A collection of Claude Code Skills (`.claude/skills/*/SKILL.md`) documenting verified,
+A collection of Claude Code Skills (`skills/*/SKILL.md`) documenting verified,
 non-obvious JetEngine/JetFormBuilder/JetSmartFilters (Crocoblock) internals — the kind
 of thing an agent would otherwise hallucinate a plausible-sounding wrong function name
 for. See `README.md` for the full skill list and `docs/principles.md` /
@@ -72,7 +72,7 @@ this repo's full draft→verify→ship discipline was applied to each: read `doc
 `docs/authoring-guide.md`, mine the source, write `SKILL.md`+`TEST-REGIMEN.md`+`tests.php`
 together, deploy and fix what the suite finds.
 
-**Correcting the gist backlog first.** `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`
+**Correcting the gist backlog first.** `other-plugins-backlog/OTHER-PLUGINS.md`
 had a single combined "JetBooking / JetAppointments" section (~25 gists) written before it
 was confirmed these are two separate plugins. Every gist was re-fetched and read for real
 (not re-guessed from its one-line description) to check whether it calls `jet_apb()`/
@@ -168,7 +168,7 @@ WooCommerce — this also unblocked `jetbooking-calendar`/`jetbooking-integratio
 `jetmenu-structure`/`jetmenu-extensibility`, and `jetreviews-data-model`/
 `jetreviews-conditions`, which were source-verified-only from the fourth round.
 JetSearch is active on the sandbox but has no local source checked out — it remains the
-one plugin left in `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`.
+one plugin left in `other-plugins-backlog/OTHER-PLUGINS.md`.
 
 **12 new skills**, each with `SKILL.md`/`TEST-REGIMEN.md`/`tests.php`, all deployed and
 green: `jetblog-query-pipeline` (5/5), `jetblog-widgets-extensibility` (6/6),
@@ -408,7 +408,7 @@ JetSmartFilters-relevant (**~230 gists**) or belonging to a different Crocoblock
 JetSearch, JetElements, JetBlog, JetThemeCore, JetTabs, JetCompareWishlist, etc.).
 
 The out-of-scope ~75 are logged with gist URLs + key hook/class names in
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md` (not a Claude Code Skill itself
+`other-plugins-backlog/OTHER-PLUGINS.md` (not a Claude Code Skill itself
 — a research log for whoever builds out the next plugin's skill; JetBooking/
 JetAppointments is flagged as the highest-priority next candidate, ~25 gists including a
 full JS API reference doc already gisted).

@@ -99,7 +99,7 @@ reachable via `jet_woo_builder_template_functions()`) backs most of the widget-r
 product fields. Every method reads `global $product` and returns `null`/`''`/`false` if
 it isn't a real `WC_Product` — safe to call outside The Loop only if you've set
 `global $product` yourself first. Key filters (all confirmed by direct source read, not
-just a Codelab snippet — several of these match this repo's `_other-plugins-backlog/
+just a Codelab snippet — several of these match this repo's `other-plugins-backlog/
 OTHER-PLUGINS.md` JetWooBuilder gist entries, cross-checked against source before being
 listed here):
 
@@ -239,7 +239,7 @@ Read `jet-woo-builder.php` (main class, gating, component/module loading order),
 `includes/settings/class-jet-woo-builder-settings.php`, and
 `includes/settings/class-jet-woo-builder-shop-settings.php` in JetWooBuilder 2.3.3 source,
 cross-checked against the 5 JetWooBuilder gists logged in
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md` (all 5 hook names confirmed
+`other-plugins-backlog/OTHER-PLUGINS.md` (all 5 hook names confirmed
 present at the cited file:line, no corrections needed this round). **Not yet run against
 a live site** — JetWooBuilder is not installed on this repo's sandbox
 (`jackfruit.epeak.studio`); see `TEST-REGIMEN.md` for the runnable suite (`tests.php`)

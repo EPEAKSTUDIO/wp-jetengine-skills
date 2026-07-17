@@ -192,7 +192,7 @@ in JetReviews For Elementor 3.1.0.1 source — confirming the registration hooks
 `'can-review'` type gate, the render-time-only call site, and the single-quoted
 un-interpolated hook-name bug by direct file:line citation (the bug is present
 identically across all 4 condition files plus the 1 verification file, not a one-off
-typo). Cross-checked against `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`'s
+typo). Cross-checked against `other-plugins-backlog/OTHER-PLUGINS.md`'s
 gist reference for `jet-reviews/user/conditions/register` — confirmed it fires with the
 `User\Manager` instance and requires extending `Base_Condition`, exactly as the gist's
 example does. Not yet verified against a running site — JetReviews is not installed on

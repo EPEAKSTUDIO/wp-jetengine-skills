@@ -15,7 +15,7 @@ passes through when a form submits it. Confirmed against JetBooking 4.1.2.1 sour
 `plugins/jet-booking/`. **Not to be confused with Jet Appointments Booking**
 (`JET_APB`/`jet_apb()`) — a separate, separately-versioned plugin with a similar but
 distinctly-prefixed hook set (`jet-apb/...` vs. this plugin's `jet-booking/...`); see
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md` for how the two were told apart.
+`other-plugins-backlog/OTHER-PLUGINS.md` for how the two were told apart.
 
 ## The `Plugin` singleton — `jet_abaf()`, not `new JET_ABAF\Plugin()`
 
@@ -182,6 +182,6 @@ cited above (`jet-booking/form-action/pre-process`, `booking-inserted`,
 `before-booking-delete`, `jet-booking/price/meta`/`default-price`/`day-price`/
 `total-price`/`breakdown`) by direct file:line citation, and the `jet_abaf_price`
 single-serialized-meta-key structure (correcting/confirming a lead from
-`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`'s gist audit, which described it
+`other-plugins-backlog/OTHER-PLUGINS.md`'s gist audit, which described it
 correctly). Not yet verified against a running site — JetBooking is not installed on the
 sandbox; see `TEST-REGIMEN.md`.

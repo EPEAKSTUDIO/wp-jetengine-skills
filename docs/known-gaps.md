@@ -8,7 +8,7 @@ just honest bookkeeping so contributors know where to look first. See each skill
 
 - **JetSearch** — active on the sandbox this repo was verified against, but its source
   was never checked out locally, so no skill exists yet. Three unverified gist leads are
-  logged in [`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`](../.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md)
+  logged in [`other-plugins-backlog/OTHER-PLUGINS.md`](../other-plugins-backlog/OTHER-PLUGINS.md)
   as a starting point — they still need verifying against real source, per this repo's
   core principle (see [`principles.md`](principles.md)).
 
