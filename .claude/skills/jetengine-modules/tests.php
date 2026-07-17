@@ -203,6 +203,13 @@ add_action( 'agent-test/run-suite/jetengine-modules', function() {
 		$fired = array( 'increased' => null, 'decreased' => null );
 		if ( $is_active && class_exists( '\\Jet_Engine\\Modules\\Data_Stores\\Module' ) ) {
 			$manager = \Jet_Engine\Modules\Data_Stores\Module::instance()->stores;
+			// Gotcha (live-verified 2026-07-17): Stores\Factory is only require'd lazily inside
+			// Manager::register_stores()'s "if ( ! empty( $stores ) )" branch — on a fresh site
+			// with zero stores configured in settings, that require never runs, and a direct
+			// register_store() call fatals with "Class ...\Factory not found". Force-load it here.
+			if ( ! class_exists( '\\Jet_Engine\\Modules\\Data_Stores\\Stores\\Factory' ) ) {
+				require jet_engine()->modules->modules_path( 'data-stores/inc/stores/factory.php' );
+			}
 			$manager->register_store( array( 'slug' => 'agent_test_store', 'type' => 'user-meta', 'count_posts' => true ) );
 			$factory = $manager->get_store( 'agent_test_store' );
 			if ( $factory ) {

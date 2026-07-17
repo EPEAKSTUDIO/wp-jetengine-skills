@@ -10,7 +10,7 @@ changed" from "this test itself has a bug."
 
 ## Why not just keep writing one-off probe snippets
 
-The first two audit rounds in this repo (see `docs/audit-2026-07-16.md`) worked by
+The first two audit rounds in this repo worked by
 writing a throwaway snippet per investigation, reading `error_log()` output or a
 one-shot REST endpoint, then discarding the reasoning once it was written up in
 `SKILL.md`. That's fine for a single investigation, but it doesn't scale:

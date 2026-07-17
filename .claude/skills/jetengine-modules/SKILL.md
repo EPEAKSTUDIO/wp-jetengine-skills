@@ -164,6 +164,16 @@ a generic key-value API.
 - **`jet-engine/data-stores/pre-get-post-count`** (filter, 3 args: `false` default,
   `$post_id`, `$this`) — `factory.php:110` — return a non-`false` value to fully
   override the reported count for a post without touching the stored meta value.
+- **Gotcha (live-verified 2026-07-17): `Manager::register_store()` can fatal with
+  `Class ...\Factory not found` on a fresh site.** `Stores\Factory` is only
+  `require`'d lazily inside `Manager::register_stores()`'s `if ( ! empty( $stores ) )`
+  branch (`manager.php:49`) — i.e. only when at least one store is already saved in the
+  module's settings. On a site where no store has ever been configured through the
+  admin UI, that `require` never runs, so calling `register_store( $args )` directly
+  (the documented way to register a custom named store instance, above) fatals unless
+  you `require jet_engine()->modules->modules_path( 'data-stores/inc/stores/factory.php' )`
+  yourself first. Once any store exists in settings, this is a non-issue on subsequent
+  requests.
 
 ## Dynamic Visibility (conditional display — a standalone module, not part of JFB/JSF)
 

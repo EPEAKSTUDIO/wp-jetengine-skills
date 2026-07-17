@@ -1,9 +1,9 @@
 # Handoff — read this first
 
 This file is the up-to-date "what's the state of things" doc for whoever (human or
-agent) picks this repo up next. `docs/audit-2026-07-16.md` is a valuable historical log
-of how coverage grew round by round, but it's a journal, not a status board — trust
-this file over it for "what's true right now."
+agent) picks this repo up next. It's a running journal of how coverage grew round by
+round — trust the most recent section for "what's true right now," and see
+`docs/known-gaps.md` for a short, current list of what's still open.
 
 ## What this repo is
 
@@ -45,9 +45,9 @@ a claim came from when triaging a failure.
 **When a test fails, work out whether the *test* is wrong or the *plugin behavior* is
 wrong before touching anything** — `docs/test-harness-guide.md`'s "Reading results" section
 is a 4-step procedure for this. Every bug found so far in this repo's runnable suites was
-diagnosed this way (see `docs/audit-2026-07-16.md`'s "Fourth round"/"Fifth round"
-sections for the worked examples — wrong accessors, an overly-strict assertion, and one
-genuine site-crashing plugin landmine).
+diagnosed this way (see this file's "Fourth round"/"Fifth round" sections below for the
+worked examples — wrong accessors, an overly-strict assertion, and one genuine
+site-crashing plugin landmine).
 
 **Is `TEST-REGIMEN.md` still worth keeping once a skill has a `tests.php`?** Yes, but
 treat it as *the residual after automation*, not a parallel copy. `tests.php` is the
@@ -220,6 +220,60 @@ just to call a Reflection-exposed helper method — prefer testing the underlyin
 `apply_filters()`/`do_action()` calls directly when the actual claim under test doesn't
 need a fully-initialized widget object.
 
+## 2026-07-17, seventh round: closing the last within-plugin gaps (JetEngine Booking Forms,
+JetFormBuilder Payment Gateways, JetEngine REST API) + a real Data Stores fatal
+
+The site owner added source for JetFormBuilder's `modules/gateways/` (previously absent)
+and JetEngine gained working Calendar/Forms/REST-API-Listings source paths that were
+flagged but never picked up in earlier rounds. Activated the `dynamic-visibility`,
+`data-stores`, `calendar`, `booking-forms`, and `rest-api-listings` JetEngine modules on
+the sandbox via `tool-manage-modules`, then built out the three remaining gaps from the
+old audit backlog (now `docs/known-gaps.md`):
+
+- **`jetengine-booking-forms`** (new, snippet id 75) — JetEngine's own built-in Dynamic
+  Calendar module and legacy "Forms (Legacy)" builder, both distinct from JetFormBuilder.
+  **12/12 pass, clean first run**, no plugin or test bugs. Two documentation additions:
+  `get_calendar_group_keys()`/`get_notification_types()` both return more entries live
+  than the documented core set, since other active plugins on this multi-plugin sandbox
+  append to the same filterable lists — corrected to "floor, not ceiling" language.
+- **`jetformbuilder-payment-gateways`** (new, snippet id 76) — extending
+  `Base_Gateway`/`Base_Scenario_Gateway`, the DB-backed `Payment_Model` data model, the
+  `GATEWAY.SUCCESS`/`GATEWAY.FAILED` Action Events, and the PayPal reference
+  implementation (the only gateway registered on this sandbox, no live credentials
+  needed for any assertion). **9/9 pass, clean first run.**
+- **`jetengine-rest-api`** (new, snippet id 77) — JetEngine's REST surface in both
+  directions: exposing its own CPT/CCT/meta-box/options-page/query-builder data over
+  REST (including CCTs' own `/jet-cct/{slug}` controller, since they aren't real WP
+  posts), and consuming a third-party REST API as a Listing Grid source via the Rest API
+  Listings module. Tests reused existing fixtures (CCT id 15, query id 16, relation id
+  17) rather than creating new state, and drove REST routes in-process via
+  `rest_do_request()` rather than a real HTTP round trip (per the `jetblog-query-pipeline`
+  lesson). First run 9/11 — two test-only bugs, both the same "class only lazily
+  `require`d behind a gate" shape as the `jetengine-modules` Data Stores fix above:
+  Relations' `Public_Controller` (only loaded from inside `Relation::init_public_rest_api()`,
+  itself gated by the relation's own `rest_get_enabled`/`rest_post_enabled` args), and
+  `Query_Endpoint`'s route never registering because its `rest_api_init` hook had already
+  fired for the outer request the suite runs inside of. **11/11 pass after both fixes.**
+  Also confirmed a transient, unrelated infrastructure hiccup: the sandbox's edge/WAF
+  briefly served a JS bot-challenge page instead of JSON for every route mid-session,
+  resolving itself after a short wait — not caused by, or fixable from, this repo's side.
+
+**One real plugin gotcha found and fixed while re-running `jetengine-modules` with Data
+Stores now genuinely active** (previously it was only gating-tested): `mod-8` fatal'd
+with `Class ...\Stores\Factory not found`. Root cause: `Stores\Manager::register_stores()`
+only `require`s `stores/factory.php` inside its `if ( ! empty( $stores ) )` branch — on a
+site with zero stores configured (true here, right after activation), that `require`
+never runs, so a direct `register_store()` call fatals unless the caller force-loads
+`factory.php` first. Documented as a new gotcha in `jetengine-modules/SKILL.md`; fixed
+the test to force-load it. **10/10 pass after the fix**, and `mod-4`/`mod-5`/`mod-8` now
+exercise real Dynamic Visibility/Data Stores behavior instead of just gating-consistency.
+
+Also this round: removed the stale `docs/audit-2026-07-16.md` journal (fully superseded
+by this file) and replaced it with a short, current `docs/known-gaps.md`; folded its two
+still-open threads (JetEngine's possible meta-field read/write helper, Dynamic Functions
+vs. `%macro%`) plus two newly-surfaced ones (JetFormBuilder's separate macro-filter
+system, JetEngine Profile Builder) into that file.
+
 ## Current sandbox state (jackfruit.epeak.studio)
 
 - Not production — the site owner confirmed it's fine to create/test freely here, as
@@ -233,11 +287,16 @@ need a fully-initialized widget object.
   self-service refresh flow documented here.
 - Code Snippets ids currently deployed and their purpose are fully inventoried in
   `docs/code-snippets-rest-api.md` — **id 22 is the shared harness core; never
-  deactivate it**, everything else (ids 23, 24, 27-45, 52-63 as of this writing) are
-  per-skill suites that depend on it. Id 25 is a deactivated crash-reproduction
+  deactivate it**, everything else (ids 23, 24, 27-45, 52-63, 75-77 as of this writing)
+  are per-skill suites that depend on it. Id 25 is a deactivated crash-reproduction
   diagnostic — documented on purpose, do not activate it or hit its route. A number of
-  ids in the 46-74 range were one-off `ZZZ-DIAG` isolation probes used during this
-  round's triage, all deactivated after use (see `docs/code-snippets-rest-api.md`).
+  ids in the 46-74 range were one-off `ZZZ-DIAG` isolation probes used during earlier
+  rounds' triage, all deactivated after use (see `docs/code-snippets-rest-api.md`).
+- **All five optional JetEngine modules this repo's skills document are now active**
+  (as of the seventh round): Dynamic Visibility, Data Stores, Calendar, Forms (Legacy),
+  and Rest API Listings — activated via `tool-manage-modules` so `jetengine-modules`,
+  `jetengine-booking-forms`, and `jetengine-rest-api` all exercise real behavior instead
+  of module-gating-only checks.
 - **Every plugin this repo covers is now active on the sandbox** (as of the fifth
   round): JetEngine, JetFormBuilder, JetSmartFilters, Jet Appointments Booking,
   JetBooking, JetElements, JetMenu, JetReviews, JetWooBuilder, JetBlog,
@@ -281,7 +340,7 @@ affected skill's `TEST-REGIMEN.md` "Run log" section says exactly which of its o
 tests remain open for this reason.
 
 Full prioritized backlog (new skills to write, deeper gaps within existing ones):
-`docs/audit-2026-07-16.md`'s "Backlog" section at the bottom.
+`docs/known-gaps.md`.
 
 ## 2026-07-16, second round: dev-docs + Codelab audit
 
@@ -319,18 +378,18 @@ with `add_action(..., 10, 2)`, but the real source (`base-post-action.php:37-42`
 with 3 args — `jetformbuilder-hooks`' existing claim was already correct; the dev-docs
 example just doesn't request the 3rd arg (harmless, WP allows that).
 
-**Deliberately not attempted this round** (scoped out for time, not forgotten — see
-`docs/audit-2026-07-16.md`-style backlog below): three entirely new, sizeable JetEngine/
-JFB subsystems the audit surfaced with no owning skill yet —
-- **JetFormBuilder Payment Gateways module** (`modules/gateways/*`) — PayPal/Stripe
-  checkout, its own scenario/executor classes and DB-backed payment records. Both
-  `jetformbuilder-fields` and `jetformbuilder-hooks` now flag concrete entry points
-  (`get_gateways()`, the executors filter) but the module itself is unexplored.
+**Deliberately not attempted this round** (scoped out for time, not forgotten): three
+entirely new, sizeable JetEngine/JFB subsystems the audit surfaced with no owning skill
+yet — **Update, 2026-07-17: two of these three are now done.**
+- ~~**JetFormBuilder Payment Gateways module**~~ — done, see `jetformbuilder-payment-gateways`
+  (below, "seventh round").
 - **JetFormBuilder's own macro-filter system** (`%field|filter(args)%`,
   `jet-form-builder/content-filters`) — a separate implementation from JetEngine's
   `%macro%` engine with confusingly similar syntax; ~12 built-in filters, zero coverage.
-- **JetEngine Profile Builder module** and **REST API Listings module** — both real,
-  both undocumented anywhere in this repo.
+  Still open — see `docs/known-gaps.md`.
+- ~~**JetEngine Profile Builder module** and **REST API Listings module**~~ — REST API
+  Listings is now done, see `jetengine-rest-api` (below, "seventh round"). Profile
+  Builder is still open — see `docs/known-gaps.md`.
 Also out of scope this round: the 4 plugins dev-docs covers that aren't installed on the
 sandbox yet (JetPopup, JetBooking, JetWooProductGallery, JetCompareWishlist) — noted for
 future "adding a new Crocoblock plugin" work, no source/sandbox access attempted.
@@ -446,8 +505,8 @@ applies to any Crocoblock plugin:
 static method you haven't seen called elsewhere in the plugin, check whether a singleton
 already owns that responsibility (`grep` for `::instance()` / existing `new ClassName()`
 call sites first). This repo hit one genuine site-crashing landmine
-(`jetsmartfilters-query`'s `Storage\Controller` — see `docs/audit-2026-07-16.md`'s
-"Fourth round") from directly instantiating a class whose singleton wrapper already
+(`jetsmartfilters-query`'s `Storage\Controller` — see this file's "Fourth round" section
+above) from directly instantiating a class whose singleton wrapper already
 constructs one on every request, triggering an uncatchable "Cannot redeclare class"
 fatal that a `try/catch(\Throwable)` cannot stop. If you're not sure a class is safe to
 instantiate directly, grep for its constructor's body first, and consider isolating a

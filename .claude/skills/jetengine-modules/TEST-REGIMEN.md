@@ -82,6 +82,30 @@ modules (Dynamic Visibility, Data Stores, Maps Listings) are inactive on this sa
 if this repo's test site ever gets those modules turned on, re-run the suite to get a
 real (not just gating-consistency) pass for those hook/method bodies.
 
+## Run log — 2026-07-17: Dynamic Visibility and Data Stores activated, real fatal caught and fixed
+
+Both modules were activated on the sandbox (via the `tool-manage-modules` MCP tool) as
+part of closing out `docs/audit-2026-07-16.md`'s backlog item 2. Re-running the suite
+with both modules now genuinely active flipped `mod-4`/`mod-5`/`mod-8` from
+consistency-only checks to real exercises of the hook/method bodies — and immediately
+surfaced a real plugin fatal in `mod-8`: `Class ...\Stores\Factory not found`.
+
+**Root cause (real gotcha, now documented in SKILL.md under "Data Stores"):**
+`Stores\Manager::register_stores()` only `require`s `stores/factory.php` inside its
+`if ( ! empty( $stores ) )` branch (`manager.php:49`) — i.e. only when at least one
+store is already saved in the module's settings. On this sandbox, Data Stores had just
+been activated with zero stores configured through the admin UI, so that `require`
+never ran, and `mod-8`'s direct `Manager::register_store()` call fatal'd trying to
+`new Factory(...)`. Fixed `mod-8` to force-`require` `stores/factory.php` itself before
+calling `register_store()` (mirrors the guarded-`require` pattern already used
+elsewhere in this repo, e.g. `jetblog-widgets-extensibility`, for lazy-loaded classes).
+
+**Final result after fix: 10/10 pass**, all four previously-gated tests now exercising
+real (not just consistency) behavior — `mod-4` a real `Condition_Checker::check_cond()`
+call, `mod-5` a real `Stores\Manager`, `mod-8` real `post-count-increased`/`-decreased`
+hook firing, `mod-10` still gating-only since Maps Listings remains inactive on this
+sandbox.
+
 ## Test 1 (not yet run): `get_fields_for_context()` returns empty before `init` priority 11
 
 **Claim:** calling `jet_engine()->meta_boxes->get_fields_for_context()` before `init`

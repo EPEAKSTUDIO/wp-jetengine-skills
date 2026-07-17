@@ -178,7 +178,10 @@ across sessions is listed here, confirmed `active: false` unless noted:
   `GET /agent-test/v1/suite/jetengine-modules`. Updated 2026-07-16 (dev-docs/Codelab
   audit round) with `mod-7`, then again (gists audit round) with `mod-8`/`mod-9`/`mod-10`
   (Data Stores post-count hooks, Options Pages programmatic registration, Maps Listings
-  providers); 10/10 pass.
+  providers); 10/10 pass. Redeployed 2026-07-17 after Dynamic Visibility/Data Stores
+  were activated on the sandbox: `mod-8` initially fataled for real
+  (`Stores\Factory not found` — a lazy-`require` gotcha, now documented in `SKILL.md`),
+  fixed; 10/10 pass, all four previously gating-only tests now exercising real behavior.
 - id 28 — "AGENT-TEST-SUITE: jetformbuilder-fields" — runnable suite for that skill.
   Source of truth: `.claude/skills/jetformbuilder-fields/tests.php`. Active; run via
   `GET /agent-test/v1/suite/jetformbuilder-fields`. Updated 2026-07-16 (dev-docs/Codelab
@@ -364,6 +367,24 @@ Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39)
   meta) — see that skill's TEST-REGIMEN.md.
 - id 73 — one-off diagnostic dumping live Theme Builder Page Template conditions state
   during the `jetthemecore-locations` flakiness investigation. Deactivated after use.
+- id 75 — "AGENT-TEST-SUITE: jetengine-booking-forms" — Source of truth:
+  `.claude/skills/jetengine-booking-forms/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-booking-forms`. 12/12 pass as of 2026-07-17, clean
+  first run (no plugin or test bugs) after Dynamic Calendar + Forms (Legacy) modules
+  were activated on the sandbox.
+- id 76 — "AGENT-TEST-SUITE: jetformbuilder-payment-gateways" — Source of truth:
+  `.claude/skills/jetformbuilder-payment-gateways/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetformbuilder-payment-gateways`. 9/9 pass as of 2026-07-17,
+  clean first run against the real PayPal gateway already registered on this sandbox (no
+  live credentials needed — schema/class/hook-level assertions only).
+- id 77 — "AGENT-TEST-SUITE: jetengine-rest-api" — Source of truth:
+  `.claude/skills/jetengine-rest-api/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetengine-rest-api`. 11/11 pass as of 2026-07-17, after
+  fixing 2 test-only bugs (a lazy-`require`-behind-a-gate class-loading gotcha in
+  Relations' `Public_Controller`, same shape as `jetengine-modules`' `Stores\Factory`
+  fix the same day; and a `Query_Endpoint` route that never registered because its
+  `rest_api_init` hook had already fired for the outer request) — see that skill's
+  TEST-REGIMEN.md.
 
 ## Open question / recommendation
 
