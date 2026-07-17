@@ -385,6 +385,11 @@ Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39)
   fix the same day; and a `Query_Endpoint` route that never registered because its
   `rest_api_init` hook had already fired for the outer request) — see that skill's
   TEST-REGIMEN.md.
+- id 78 — "ZZZ-DIAG jetsearch discover" — one-off diagnostic confirming JetSearch's
+  real installed folder name (`jet-search`, plugin file `jet-search/jet-search.php`,
+  v3.6.1.3) via `get_plugins()`/`glob(WP_PLUGIN_DIR)`, ahead of a (currently blocked,
+  see `HANDOFF.md`) attempt to check out its source through the sandbox. Deactivated
+  after use; harmless read-only info if ever re-activated.
 
 ## Open question / recommendation
 
