@@ -220,6 +220,151 @@ above). Related non-snippet test fixtures, kept for the same reason: JetEngine C
 query id 16 ("AGENT TEST Query - CCT test items"), and relation id 17 ("AGENT TEST
 relation (post -> agent_test_cct)").
 
+- id 35 — "AGENT-TEST-SUITE: jetappointments-core" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetappointments-core/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetappointments-core`. 5/5 pass as of 2026-07-16 (first run
+  was 4/5 — `apb-4` was a test-only bug, a single-line `strpos()` check against a call
+  site whose real args wrap across multiple lines; fixed with a whitespace-tolerant regex).
+- id 36 — "AGENT-TEST-SUITE: jetappointments-integrations" — runnable suite for that
+  skill. Source of truth: `.claude/skills/jetappointments-integrations/tests.php`. Active;
+  run via `GET /agent-test/v1/suite/jetappointments-integrations`. 3/3 pass as of
+  2026-07-16.
+- id 37 — "AGENT-TEST-SUITE: jetelements-widgets" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetelements-widgets/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetelements-widgets`. 7/7 pass as of 2026-07-16.
+- id 38 — "AGENT-TEST-SUITE: jetelements-query-gateway" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetelements-query-gateway/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetelements-query-gateway`. 4/4 pass as of 2026-07-16 (first
+  run was 3/4 on a fatal — a test passed `$widget = null` into a hook a real JetEngine
+  listener consumes, fixed with a fake widget stub; second run was still 3/4 because the
+  same test's cleanup used `remove_all_filters()`, which also stripped JetEngine's own
+  real listener off that hook — fixed by switching to `remove_filter()` with the exact
+  callback reference. See that skill's TEST-REGIMEN.md for the full story — a good
+  example of a live suite mutating shared site state across its own assertions.).
+- id 39 — "AGENT-TEST-SUITE: jetwoobuilder-templates" — runnable suite for that skill.
+  Source of truth: `.claude/skills/jetwoobuilder-templates/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetwoobuilder-templates`. 8/8 pass as of 2026-07-16, no fixes
+  needed (WooCommerce itself isn't installed on this sandbox, but the suite was written
+  defensively enough to degrade to correct results rather than fatal).
+
+## PowerShell + `Invoke-RestMethod` gotchas (2026-07-16)
+
+Every deploy in this repo before this round used `curl` from a Linux/macOS-style shell.
+This round's session ran on Windows and used PowerShell's `Invoke-RestMethod` instead —
+two real gotchas surfaced that a future PowerShell-based session should know about
+up front:
+
+**1. `Get-Content -Raw` strings carry hidden ETS NoteProperties that break
+`ConvertTo-Json`.** Reading a snippet's `tests.php` with `Get-Content -Raw` returns a
+`System.String`, but PowerShell's filesystem provider tacks on extra
+NoteProperties (`PSPath`, `PSChildName`, `PSDrive`, `PSProvider`, `ReadCount`) via the
+Extended Type System. `ConvertTo-Json` sees those and silently re-serializes the string
+as a nested object (`{"code": {"value": "...", ...}}`) instead of a plain JSON string —
+the REST API then rejects it with `"code is not of type string"`. Fix: cast to a plain
+string before building the request body — `$code = [string](Get-Content $path -Raw)`.
+
+**2. Default `Invoke-RestMethod`/`ConvertTo-Json` string encoding mangles the UTF-8
+em-dashes/arrows this repo's docs and code comments use freely**, causing
+`{"code":"rest_invalid_json","message":"Invalid JSON body passed.","data":{"json_error_message":"Malformed UTF-8 characters, possibly incorrectly encoded"}}`.
+Fix: build the JSON body, convert it to bytes with
+`[System.Text.Encoding]::UTF8.GetBytes($json)`, and pass that byte array as `-Body` with
+`-ContentType "application/json; charset=utf-8"` rather than passing the JSON string
+directly.
+
+Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39); a
+`curl`-based session on Linux/macOS shouldn't hit either one.
+
+- id 40 — "AGENT-TEST-SUITE: jetbooking-calendar" — Source of truth:
+  `.claude/skills/jetbooking-calendar/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetbooking-calendar`. 7/7 pass as of 2026-07-16 (first run,
+  once JetBooking activated), no fixes needed.
+- id 41 — "AGENT-TEST-SUITE: jetbooking-integrations" — Source of truth:
+  `.claude/skills/jetbooking-integrations/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetbooking-integrations`. 6/6 pass as of 2026-07-16, no fixes
+  needed.
+- id 42 — "AGENT-TEST-SUITE: jetmenu-structure" — Source of truth:
+  `.claude/skills/jetmenu-structure/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetmenu-structure`. First run 500'd the whole request
+  (uncatchable "Cannot redeclare class" fatal) — isolated to `jms-4` calling
+  `\Jet_Menu\Options_Manager::get_instance()` directly, which turned out to be a real doc
+  bug (SKILL.md had called this "just a desync," not a fatal — corrected). 10/10 pass
+  after the fix.
+- id 43 — "AGENT-TEST-SUITE: jetmenu-extensibility" — Source of truth:
+  `.claude/skills/jetmenu-extensibility/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetmenu-extensibility`. 7/7 pass as of 2026-07-16 (first run
+  6/7 on a test-only ordering bug — see that skill's TEST-REGIMEN.md).
+- id 44 — "AGENT-TEST-SUITE: jetreviews-data-model" — Source of truth:
+  `.claude/skills/jetreviews-data-model/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetreviews-data-model`. 6/6 pass as of 2026-07-16, no fixes
+  needed.
+- id 45 — "AGENT-TEST-SUITE: jetreviews-conditions" — Source of truth:
+  `.claude/skills/jetreviews-conditions/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetreviews-conditions`. 5/5 pass as of 2026-07-16, no fixes
+  needed.
+- ids 46-51, 64-72, 74 — one-off `ZZZ-DIAG` isolation probes used to bisect the
+  `jetmenu-structure`/`jetblog-widgets-extensibility`/`jetthemecore-template-conditions`
+  fatal-error crashes and one `jetthemecore-locations` flakiness investigation (see each
+  skill's TEST-REGIMEN.md for what each isolated). All deactivated after use, per this
+  repo's established pattern (see ids 25/26).
+- id 52 — "AGENT-TEST-SUITE: jetblog-query-pipeline" — Source of truth:
+  `.claude/skills/jetblog-query-pipeline/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetblog-query-pipeline`. 5/5 pass as of 2026-07-16 (first run
+  3/5 — Elementor version-specific widget-constructor validation issues, resolved by
+  testing the underlying filter mechanisms directly instead of through a fully-live
+  widget instance; see that skill's TEST-REGIMEN.md).
+- id 53 — "AGENT-TEST-SUITE: jetblog-widgets-extensibility" — Source of truth:
+  `.claude/skills/jetblog-widgets-extensibility/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetblog-widgets-extensibility`. 6/6 pass as of 2026-07-16
+  (first run 500'd — Elementor's lazy widget-registration vs. a manually-guarded
+  `require` race condition, then 5/6 on a strict-bool test bug — both fixed).
+- id 54 — "AGENT-TEST-SUITE: jetcomparewishlist-data-store" — Source of truth:
+  `.claude/skills/jetcomparewishlist-data-store/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetcomparewishlist-data-store`. 6/6 pass as of 2026-07-16 (2
+  of 6 gracefully skip since Wishlist/Compare are disabled by default on this site).
+- id 55 — "AGENT-TEST-SUITE: jetcomparewishlist-integrations" — Source of truth:
+  `.claude/skills/jetcomparewishlist-integrations/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetcomparewishlist-integrations`. 5/5 pass as of 2026-07-16,
+  no fixes needed.
+- id 56 — "AGENT-TEST-SUITE: jetpopup-conditions" — Source of truth:
+  `.claude/skills/jetpopup-conditions/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetpopup-conditions`. 6/6 pass as of 2026-07-16, no fixes
+  needed.
+- id 57 — "AGENT-TEST-SUITE: jetpopup-extensibility" — Source of truth:
+  `.claude/skills/jetpopup-extensibility/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetpopup-extensibility`. 7/7 pass as of 2026-07-16 (first run
+  6/7 — the CPT's capabilities were already baked in before the test's filter was added;
+  fixed by unregistering/re-registering the CPT with the filter active).
+- id 58 — "AGENT-TEST-SUITE: jetpopup-render-triggers" — Source of truth:
+  `.claude/skills/jetpopup-render-triggers/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetpopup-render-triggers`. 5/5 pass as of 2026-07-16, no
+  fixes needed.
+- id 59 — "AGENT-TEST-SUITE: jettabs-query-gateway" — Source of truth:
+  `.claude/skills/jettabs-query-gateway/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jettabs-query-gateway`. 4/4 pass as of 2026-07-16, no fixes
+  needed.
+- id 60 — "AGENT-TEST-SUITE: jettabs-widgets" — Source of truth:
+  `.claude/skills/jettabs-widgets/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jettabs-widgets`. 4/4 pass as of 2026-07-16, no fixes needed.
+- id 61 — "AGENT-TEST-SUITE: jetthemecore-locations" — Source of truth:
+  `.claude/skills/jetthemecore-locations/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetthemecore-locations`. 4/4 pass as of 2026-07-16 after
+  fixing a real doc bug (WooCommerce registers 6 additional structures/locations beyond
+  the documented "core 6/4") and a flaky test relying on a hardcoded filter name that
+  should have been computed dynamically — see that skill's TEST-REGIMEN.md.
+- id 62 — "AGENT-TEST-SUITE: jetthemecore-template-conditions" — Source of truth:
+  `.claude/skills/jetthemecore-template-conditions/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetthemecore-template-conditions`. 5/5 pass as of 2026-07-16
+  after fixing a real doc bug (`register_cpt_conditions()` fatals on a second call, an
+  unconditional-`require` landmine the doc had missed) plus 2 test-only bugs.
+- id 63 — "AGENT-TEST-SUITE: jetthemecore-theme-builder" — Source of truth:
+  `.claude/skills/jetthemecore-theme-builder/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetthemecore-theme-builder`. 4/4 pass as of 2026-07-16 after
+  fixing 3 test-only bugs (wrong response-key extraction, a missing
+  `update_page_template_conditions()` call, and a missing `_jet_template_type` post
+  meta) — see that skill's TEST-REGIMEN.md.
+- id 73 — one-off diagnostic dumping live Theme Builder Page Template conditions state
+  during the `jetthemecore-locations` flakiness investigation. Deactivated after use.
+
 ## Open question / recommendation
 
 Given `DELETE` is broken and there's no request validation, any future agent session

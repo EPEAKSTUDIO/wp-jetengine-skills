@@ -62,6 +62,164 @@ which of its manually-written tests got automated/superseded and which remain op
 that reason — follow that same pattern for a new plugin's skills rather than duplicating
 the whole checklist into `tests.php`'s code comments.
 
+## 2026-07-16, fourth round: six new Crocoblock plugins (Jet Appointments Booking,
+JetBooking, JetElements, JetMenu, JetReviews, JetWooBuilder)
+
+Follow-up to the third round's gist audit, which flagged JetBooking/JetAppointments as
+the highest-priority next candidate. Source for all six plugins was checked out to
+`plugins/<slug>/` (gitignored, not committed, same pattern as the original three) and
+this repo's full draft→verify→ship discipline was applied to each: read `docs/principles.md`/
+`docs/authoring-guide.md`, mine the source, write `SKILL.md`+`TEST-REGIMEN.md`+`tests.php`
+together, deploy and fix what the suite finds.
+
+**Correcting the gist backlog first.** `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`
+had a single combined "JetBooking / JetAppointments" section (~25 gists) written before it
+was confirmed these are two separate plugins. Every gist was re-fetched and read for real
+(not re-guessed from its one-line description) to check whether it calls `jet_apb()`/
+`JET_APB` (→ Jet Appointments Booking) or `jet_abaf()`/`JET_ABAF` (→ JetBooking), or —
+where a gist referenced neither directly — by grepping the exact hook/meta-key string
+against both local plugin trees. Result: **12 gists to Jet Appointments Booking, 13 to
+JetBooking, zero left genuinely ambiguous**, each with a `[confirmed via: ...]`
+traceability tag.
+
+**11 new skills landed**, one per plugin except JetElements/JetMenu/JetReviews/JetBooking
+which each split into 2 given distinct capability areas (same "split by capability, not by
+plugin name" principle as JetEngine's own cct-internals/relations/modules/query-builder/
+listings-macros split):
+
+- `jetappointments-core` / `jetappointments-integrations` — Jet Appointments Booking 2.5.1:
+  the `jet_apb()` singleton and custom-table data model, calendar/time-slots hooks, the
+  form-action insert pipeline and public confirm/cancel pages; the JetFormBuilder action
+  class + `jet-apb/jet-fb/action/success` event and WooCommerce integration.
+- `jetelements-widgets` / `jetelements-query-gateway` — JetElements 2.9.1.2: widget/addon
+  registration, per-widget include/exclude-controls filters, the carousel-options pattern,
+  a documented "don't call `register_addon()` directly" landmine; and the cross-plugin
+  Query Gateway integration with JetEngine's Query Builder (`jet-elements/widget/loop-items`
+  + the `jet-engine-query-gateway/*` hook quartet).
+- `jetmenu-structure` / `jetmenu-extensibility` — JetMenu 3.0.2.1: the Mega Menu Items CPT
+  and its three separate (easily-confused) storage locations, the NextGen-vs-legacy render
+  pipeline, two nav-menu walkers, `jet-menu-api/v2` REST; and the real extension surface
+  (Dynamic Visibility custom conditions, walker-level markup filters, the JS event trio).
+- `jetreviews-data-model` / `jetreviews-conditions` — JetReviews 3.1.0.1: six custom DB
+  tables (not a CPT/CCT), the Sources abstraction, Review Types, structured-data types,
+  and a REST permission-callback gap (a Condition only gates the widget UI, not a direct
+  REST POST); plus the Conditions/Verifications registries — including a **genuine plugin
+  bug found and documented**: every built-in condition's invalid-message filter is called
+  with a single-quoted string containing a literal, un-interpolated `{$this->slug}`, so
+  the "obvious" per-slug hook name a developer would guess for it never actually fires.
+- `jetwoobuilder-templates` — JetWooBuilder 2.3.3: the `%macro%` engine (with its
+  `[a-z_-]+`-only regex gotcha), the `jet-woo-builder/template-functions/*` widget-markup
+  filter family, the Elementor Document/template system, and the "two separate settings
+  stores" gotcha (`jet_woo_builder_settings()` vs `jet_woo_builder_shop_settings()`).
+- `jetbooking-calendar` / `jetbooking-integrations` — JetBooking 4.1.2.1: the
+  `\JET_ABAF\Plugin` singleton, booking DB tables, the real shape of `jet_abaf_price`
+  (one serialized meta key with sub-keys, not several flat ones), and the form-insert
+  pipeline; plus WooCommerce cart/order hooks (confirming the singular `jet-appointment/`
+  vs plural `jet-booking/` naming collision with the *other* booking plugin), Google
+  Calendar export, and the front-end `window.JetPlugins.hooks` JS API verified directly
+  against the shipped JS bundle.
+
+**Sandbox activation and live-testing.** Before this round, none of the six plugins were
+active on `jackfruit.epeak.studio`. The site owner activated all six mid-session; a
+recheck via `resource-get-website-config` showed **three actually came up** (Jet
+Appointments Booking, JetElements, JetWooBuilder — alongside Elementor/Elementor Pro,
+already active) while **JetBooking, JetMenu, and JetReviews did not** activate this round
+— their `SKILL.md`/`TEST-REGIMEN.md`/`tests.php` are written and ready (same
+"as-if-ready" discipline as the original JetSmartFilters round) but genuinely blocked on
+installation, flagged explicitly at the top of each affected `TEST-REGIMEN.md`.
+
+All 5 suites for the 3 now-active plugins were deployed and run (ids 35-39, see
+`docs/code-snippets-rest-api.md`) — **27/27 assertions passing**, 2 issues caught and
+fixed, both **test bugs, not plugin/doc bugs** (worked triage examples for a future
+session, per `docs/test-harness-guide.md`'s "Reading results" procedure):
+- `jetappointments-core`'s `apb-4` used a single-line `strpos()` against a call site whose
+  real args wrap across multiple lines (`render_action_result_page(\n\t\t\t'error', ...)`)
+  — fixed with a whitespace-tolerant regex.
+- `jetelements-query-gateway`'s `jeg-1` first fataled (passed `$widget = null` into a hook
+  a real, already-registered JetEngine listener consumes and unconditionally calls
+  `->get_name()` on), then — after fixing that with a fake widget stub — broke `jeg-2`
+  instead, because `jeg-1`'s own cleanup used `remove_all_filters()`, which also stripped
+  JetEngine's real listener off that shared hook. Fixed by switching to `remove_filter()`
+  with the exact callback reference. A clean illustration that a live suite runs inside a
+  real, already-bootstrapped site — global mutations (removing *all* filters on a hook)
+  can quietly corrupt a *different* assertion in the same run, not just the one that made
+  the mutation.
+
+Also surfaced and documented (not part of `tests.php`, since Windows PowerShell isn't
+this repo's usual deploy path): two `Invoke-RestMethod`/`ConvertTo-Json` gotchas specific
+to deploying Code Snippets from PowerShell rather than `curl` — see
+`docs/code-snippets-rest-api.md`'s new "PowerShell + Invoke-RestMethod gotchas" section.
+
+**What's still open from this round**: `jetbooking-calendar`, `jetbooking-integrations`,
+`jetmenu-structure`, `jetmenu-extensibility`, `jetreviews-data-model`, `jetreviews-conditions`
+need their plugins actually installed on the sandbox before their `tests.php` suites can
+be deployed and run — same documented-blocker pattern as everything else in this repo
+that's source-verified but not yet sandbox-confirmed. `jetwoobuilder-templates`' WC-dependent
+edge cases (a real product driving `jwb-5`, `jwb-8`'s template swap actually serving a WC
+page) also remain open since WooCommerce itself isn't installed on this sandbox.
+
+## 2026-07-16, fifth round: five more Crocoblock plugins (JetBlog, JetCompareWishlist,
+JetPopup, JetTabs, JetThemeCore) + unblocking the fourth round's stragglers
+
+The site owner added real source for five more plugins (`plugins/jet-blog/`,
+`plugins/jet-compare-wishlist/`, `plugins/jet-popup/`, `plugins/jet-tabs/`,
+`plugins/jet-theme-core/`) and activated **every** plugin on the sandbox, including
+WooCommerce — this also unblocked `jetbooking-calendar`/`jetbooking-integrations`,
+`jetmenu-structure`/`jetmenu-extensibility`, and `jetreviews-data-model`/
+`jetreviews-conditions`, which were source-verified-only from the fourth round.
+JetSearch is active on the sandbox but has no local source checked out — it remains the
+one plugin left in `.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`.
+
+**12 new skills**, each with `SKILL.md`/`TEST-REGIMEN.md`/`tests.php`, all deployed and
+green: `jetblog-query-pipeline` (5/5), `jetblog-widgets-extensibility` (6/6),
+`jetcomparewishlist-data-store` (6/6), `jetcomparewishlist-integrations` (5/5),
+`jetpopup-conditions` (6/6), `jetpopup-extensibility` (7/7), `jetpopup-render-triggers`
+(5/5), `jettabs-query-gateway` (4/4), `jettabs-widgets` (4/4), `jetthemecore-locations`
+(4/4), `jetthemecore-template-conditions` (5/5), `jetthemecore-theme-builder` (4/4).
+
+**The six previously-blocked skills are now live-verified too**: `jetbooking-calendar`
+(7/7), `jetbooking-integrations` (6/6), `jetmenu-structure` (10/10), `jetmenu-extensibility`
+(7/7), `jetreviews-data-model` (6/6), `jetreviews-conditions` (5/5). Total across this
+round: **101/102 assertions passing on first confirmation, 102/102 after the last fix**.
+
+**Two real plugin/doc bugs found and fixed** (not test bugs):
+- `jetmenu-structure`: SKILL.md had claimed re-instantiating `\Jet_Menu\Options_Manager`
+  "just" desyncs a second object, like most other manager classes. Live-testing found
+  it's actually a **fatal** — its constructor's `init_options()` does an unconditional
+  `require` (not `require_once`) per options-module file, so a second call throws
+  "Cannot redeclare class". Corrected the doc, moved it into the same fatal-risk group as
+  `Render\Manager`/`Blocks\Manager`.
+- `jetthemecore-template-conditions`: similarly, `register_cpt_conditions()` does an
+  unconditional `require` of 4 condition class files every call — calling it a second
+  time (which the original test did) fatals the same way. Corrected the doc and rewrote
+  the test to check an already-real, boot-time-generated CPT condition (WooCommerce's
+  `product`) instead of re-triggering registration.
+- `jetthemecore-locations`: a real, environment-dependent doc gap, not exactly a "bug" —
+  with WooCommerce active, JetThemeCore registers 6 additional WooCommerce-specific
+  structures/locations beyond the "6 core structures / 4 core locations" this skill had
+  documented as the complete set. Corrected to "at least" language.
+
+**Several test-only bugs and Elementor-version quirks**, all resolved (see each affected
+skill's TEST-REGIMEN.md for the full story): a strict `===` check against a truthy
+non-bool return value; an Elementor lazy-widget-registration race causing a "Cannot
+redeclare class" fatal when a test's own guarded `require` ran before Elementor's own
+first-time widget-type load; repeated Elementor `Widget_Base` constructor-argument
+validation issues on `_get_posts()`-dependent tests, eventually resolved by testing the
+underlying filter mechanisms directly rather than through a fully-live widget instance
+(same "direct hook test" pattern as `jetelements-query-gateway`); a CPT's capabilities
+being read before the test's own filter took effect; wrong response-key assumptions
+about `create_page_template()`'s return shape; a fabricated post-type slug silently
+exceeding WordPress's 20-character limit; and one genuinely flaky assertion
+(`jetthemecore-locations`' `jtl-4`) that had hardcoded a dynamic filter name, fixed to
+compute the real content-type the same way the plugin's own `do_location()` does.
+
+**New PowerShell-with-Elementor lesson**: instantiating a real Elementor widget via `new
+SomeWidget()` and calling a method that resolves the widget's own settings (like
+`_get_posts()`) is far more fragile across Elementor versions than instantiating a widget
+just to call a Reflection-exposed helper method — prefer testing the underlying
+`apply_filters()`/`do_action()` calls directly when the actual claim under test doesn't
+need a fully-initialized widget object.
+
 ## Current sandbox state (jackfruit.epeak.studio)
 
 - Not production — the site owner confirmed it's fine to create/test freely here, as
@@ -75,12 +233,19 @@ the whole checklist into `tests.php`'s code comments.
   self-service refresh flow documented here.
 - Code Snippets ids currently deployed and their purpose are fully inventoried in
   `docs/code-snippets-rest-api.md` — **id 22 is the shared harness core; never
-  deactivate it**, everything else (ids 23, 24, 27-34 as of this writing) are per-skill
-  suites that depend on it. Id 25 is a deactivated crash-reproduction diagnostic —
-  documented on purpose, do not activate it or hit its route.
-- Plugins installed on the sandbox as of 2026-07-16: JetEngine, JetFormBuilder,
-  JetSmartFilters. No other Crocoblock plugins yet (see "Adding a new Crocoblock
-  plugin" below for what that means going forward).
+  deactivate it**, everything else (ids 23, 24, 27-45, 52-63 as of this writing) are
+  per-skill suites that depend on it. Id 25 is a deactivated crash-reproduction
+  diagnostic — documented on purpose, do not activate it or hit its route. A number of
+  ids in the 46-74 range were one-off `ZZZ-DIAG` isolation probes used during this
+  round's triage, all deactivated after use (see `docs/code-snippets-rest-api.md`).
+- **Every plugin this repo covers is now active on the sandbox** (as of the fifth
+  round): JetEngine, JetFormBuilder, JetSmartFilters, Jet Appointments Booking,
+  JetBooking, JetElements, JetMenu, JetReviews, JetWooBuilder, JetBlog,
+  JetCompareWishlist, JetPopup, JetTabs, JetThemeCore — plus Elementor/Elementor Pro (a
+  hard dependency for the Elementor-based plugins), WooCommerce (newly installed this
+  round, unblocking several WC-dependent test paths), JetBlocks (activated but out of
+  scope for this repo — no skill covers it), and JetSearch (active, but no local source
+  checked out — see `OTHER-PLUGINS.md`).
 
 ## What's done vs. still open
 
@@ -254,7 +419,7 @@ source isn't in this repo's local plugin checkout, so it was deliberately **not*
 documented per this repo's verify-before-writing principle), and QR Code module details
 beyond the one function already noted in `jetengine-listings-macros`.
 
-## Adding a new Crocoblock plugin (JetPopup, JetWooBuilder, JetStyleManager, etc.)
+## Adding a new Crocoblock plugin (JetSearch, JetStyleManager, etc.)
 
 Nothing plugin-specific in this repo's *process* is JetEngine-only — the same loop
 applies to any Crocoblock plugin:

@@ -1,10 +1,16 @@
 # jetengine-skills
 
 A growing collection of [Claude Code Skills](https://docs.claude.com/en/docs/claude-code/skills) for working with
-the Crocoblock JetEngine ecosystem — [JetEngine](https://jetengine.crocoblock.com/) (CCTs, relations, listings),
-[JetFormBuilder](https://jetformbuilder.com/) (forms, hooks, custom actions), and
-[JetSmartFilters](https://jetsmartfilters.com/) (filter → query internals) — for the day-to-day tasks of writing PHP
-snippets, hooking into forms, querying data, and resolving relations.
+the Crocoblock ecosystem — [JetEngine](https://jetengine.crocoblock.com/) (CCTs, relations, listings),
+[JetFormBuilder](https://jetformbuilder.com/) (forms, hooks, custom actions),
+[JetSmartFilters](https://jetsmartfilters.com/) (filter → query internals), [Jet Appointments
+Booking](https://crocoblock.com/plugins/jetappointment/) and [JetBooking](https://crocoblock.com/plugins/jetbooking/)
+(two separate booking plugins, easy to conflate), [JetElements](https://crocoblock.com/plugins/jetelements/) and
+[JetMenu](https://crocoblock.com/plugins/jetmenu/) (Elementor widgets/mega-menu), [JetReviews](https://crocoblock.com/plugins/jetreviews/),
+[JetWooBuilder](https://crocoblock.com/plugins/jetwoobuilder/), [JetBlog](https://crocoblock.com/plugins/jetblog/),
+[JetCompareWishlist](https://crocoblock.com/plugins/jetcomparewishlist/), [JetPopup](https://crocoblock.com/plugins/jetpopup/),
+[JetTabs](https://crocoblock.com/plugins/jettabs/), and [JetThemeCore](https://crocoblock.com/plugins/jetthemecore/) —
+for the day-to-day tasks of writing PHP snippets, hooking into forms, querying data, and resolving relations.
 
 Repo layout is inspired by [WordPress/agent-skills](https://github.com/WordPress/agent-skills). Every `SKILL.md`
 here conforms to the open [Agent Skills specification](https://agentskills.io/specification) (the format Anthropic
@@ -62,6 +68,70 @@ new skills are welcome — feel free to open a PR.
   for reading/writing submitted field values (including dotted-path repeater access), registering a custom field
   block type, field parsers, the validation-rule extension gap, presets, and where submitted entries are actually
   stored.
+- [`jetappointments-core`](.claude/skills/jetappointments-core/SKILL.md) — Jet Appointments Booking's `jet_apb()`
+  accessor, its custom-table data model, the calendar/time-slots customization hooks, the form-action
+  appointment-insert pipeline, and the public confirm/cancel action-link pages.
+- [`jetappointments-integrations`](.claude/skills/jetappointments-integrations/SKILL.md) — Jet Appointments
+  Booking's "Insert appointment" JetFormBuilder action, its post-submission success event, and its WooCommerce
+  integration.
+- [`jetelements-widgets`](.claude/skills/jetelements-widgets/SKILL.md) — registering/gating a JetElements For
+  Elementor widget, per-widget include/exclude-controls filters, custom Elementor controls, REST endpoints, and
+  the carousel-options extensibility pattern.
+- [`jetelements-query-gateway`](.claude/skills/jetelements-query-gateway/SKILL.md) — the cross-plugin "Query
+  Gateway" integration letting a JetElements widget's repeater "Items" control be driven by a JetEngine Query
+  Builder query instead of static content.
+- [`jetmenu-structure`](.claude/skills/jetmenu-structure/SKILL.md) — JetMenu's Mega Menu Items CPT and meta
+  structure, the rendering pipeline, the nav-menu walkers, and the `jet-menu-api/v2` REST endpoints.
+- [`jetmenu-extensibility`](.claude/skills/jetmenu-extensibility/SKILL.md) — extending JetMenu: custom Dynamic
+  Visibility conditions, walker-level markup filters, AJAX-lazy-load JS events, and compatibility-module
+  registration.
+- [`jetreviews-data-model`](.claude/skills/jetreviews-data-model/SKILL.md) — JetReviews' custom DB tables, the
+  Sources abstraction, the reviewer-avatar filter, Review Types, structured-data (rich snippet) types, and its
+  REST API/Elementor widget registration.
+- [`jetreviews-conditions`](.claude/skills/jetreviews-conditions/SKILL.md) — writing a custom "who can submit a
+  review" condition or reviewer "badge" verification for JetReviews.
+- [`jetwoobuilder-templates`](.claude/skills/jetwoobuilder-templates/SKILL.md) — JetWooBuilder's `%macro%` render
+  engine, the `jet-woo-builder/template-functions/*` widget-markup filters, the Elementor Document/template
+  system, and its two separately-keyed settings stores.
+- [`jetbooking-calendar`](.claude/skills/jetbooking-calendar/SKILL.md) — JetBooking's `\JET_ABAF\Plugin` singleton,
+  the date-range booking DB tables, seasonal/weekend pricing computation, and the form-submission booking-insert
+  pipeline.
+- [`jetbooking-integrations`](.claude/skills/jetbooking-integrations/SKILL.md) — JetBooking's WooCommerce cart/
+  order integration, Google Calendar export, and the front-end `window.JetPlugins.hooks` JS API.
+- [`jetblog-query-pipeline`](.claude/skills/jetblog-query-pipeline/SKILL.md) — JetBlog's shared `jet-blog/pre-query`
+  query-replacement hook, per-widget `*-query-args` filters, the optional JetEngine Query Builder integration, and
+  the Smart Listing AJAX "load more" endpoint's HMAC settings-signature scheme.
+- [`jetblog-widgets-extensibility`](.claude/skills/jetblog-widgets-extensibility/SKILL.md) — JetBlog's bootstrap,
+  widget registration/enable-toggle mechanics, the `Jet_Blog_Base` control-visibility system, its own
+  `jet-blog-api/v1` REST namespace, and the Video Playlist widget's YouTube/Vimeo video-data layer.
+- [`jetcomparewishlist-data-store`](.claude/skills/jetcomparewishlist-data-store/SKILL.md) — JetCompareWishlist's
+  compare/wishlist data model (session/cookie/user-meta storage), the add/remove AJAX endpoints, and the
+  widgets-store re-render mechanism.
+- [`jetcomparewishlist-integrations`](.claude/skills/jetcomparewishlist-integrations/SKILL.md) — the
+  `jet-cw/template-functions/*` filter family (the real JetEngine integration point), wiring compare/wishlist
+  buttons into JetWooBuilder/WooCommerce templates, and its compatibility packages.
+- [`jetpopup-conditions`](.claude/skills/jetpopup-conditions/SKILL.md) — JetPopup's display-condition system,
+  registering a custom condition type, and the AND/OR relation-matching algorithm (including the separate
+  "exclude" filters for each relation type).
+- [`jetpopup-extensibility`](.claude/skills/jetpopup-extensibility/SKILL.md) — JetPopup's `jet-popup/access-cap`
+  capability gate (which also drives REST `permission_callback`), its `jet-popup/v2` REST namespace, and the
+  cross-block Data Attributes/compatibility-module systems.
+- [`jetpopup-render-triggers`](.claude/skills/jetpopup-render-triggers/SKILL.md) — the `wp_footer` render pipeline
+  that decides which popups are "defined" for a request, the `jet-popup-open-trigger`/`jet-popup-close-trigger`
+  jQuery event API, and the AJAX lazy-content endpoint.
+- [`jettabs-query-gateway`](.claude/skills/jettabs-query-gateway/SKILL.md) — JetTabs' own independent copy of the
+  cross-plugin "Query Gateway" integration with JetEngine (a real gap exists in Image Accordion's copy of it — see
+  the skill for details).
+- [`jettabs-widgets`](.claude/skills/jettabs-widgets/SKILL.md) — registering/customizing a JetTabs widget (Tabs,
+  Accordion, Image Accordion, Switcher), the `jet-tabs/widgets/template_id`/`template_content` ajax-template
+  filters, and the `jet-query` custom Elementor control.
+- [`jetthemecore-template-conditions`](.claude/skills/jetthemecore-template-conditions/SKILL.md) — JetThemeCore's
+  Template Conditions registry, registering a custom condition type, and how CPT conditions get auto-generated.
+- [`jetthemecore-locations`](.claude/skills/jetthemecore-locations/SKILL.md) — the Structures/Locations render
+  pipeline that turns a matched condition into actual rendered Header/Footer/Single/Archive output.
+- [`jetthemecore-theme-builder`](.claude/skills/jetthemecore-theme-builder/SKILL.md) — JetThemeCore's Theme
+  Builder "Page Template" layout system, its own AND/OR relation type, and the priority-averaging tie-break
+  between competing Page Templates.
 
 Every skill above also has a `TEST-REGIMEN.md` next to its `SKILL.md` — a runnable validation checklist for a future
 session with sandbox (WP snippet read/write + log-viewing endpoint) access to confirm the claims against real
@@ -74,10 +144,10 @@ reinventing probe code. See [`docs/test-harness-guide.md`](docs/test-harness-gui
 
 More to come — see [`docs/audit-2026-07-16.md`](docs/audit-2026-07-16.md) for a full gap analysis against the
 plugin source (what's covered, what isn't yet, prioritized backlog) and the Open Skills spec compliance check.
-Working on a *different* Crocoblock plugin (JetBooking, JetPopup, JetWooBuilder, etc.)?
+Working on a *different* Crocoblock plugin (JetSearch is the only one left without a skill here)?
 [`.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md`](.claude/skills/_other-plugins-backlog/OTHER-PLUGINS.md)
-has gist-sourced hook/class leads for several of them, gathered as a byproduct of auditing this repo's own
-three plugins — not a skill itself, just a head start for whoever builds one.
+has gist-sourced hook/class leads for it, gathered as a byproduct of auditing this repo's own fourteen plugins —
+not a skill itself, just a head start for whoever builds it out.
 
 ## How to install these skills
 
