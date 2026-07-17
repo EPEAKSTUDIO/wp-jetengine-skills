@@ -5,11 +5,12 @@ plugin ecosystem for WordPress — real, verified internals for writing PHP snip
 data, and resolving relations without hallucinating a plausible-sounding wrong function name. Not tied to one
 assistant: these work with Claude Code, and any other spec-compliant agent (Cursor, Copilot, Codex, etc.).
 
-Fifteen plugins are covered end to end, each with source-cited facts and a runnable, machine-checkable test suite
-live-verified against a real WordPress sandbox: [JetEngine](https://jetengine.crocoblock.com/) (CCTs, relations,
-listings, query builder, modules, calendar/booking, REST API), [JetFormBuilder](https://jetformbuilder.com/) (forms,
-hooks, custom actions, fields, payment gateways), [JetSmartFilters](https://jetsmartfilters.com/) (filter → query
-internals), [Jet Appointments Booking](https://crocoblock.com/plugins/jetappointment/) and
+All sixteen Crocoblock plugins are covered end to end, each with source-cited facts and a runnable,
+machine-checkable test suite live-verified against a real WordPress sandbox: [JetEngine](https://jetengine.crocoblock.com/)
+(CCTs, relations, listings, query builder, modules, calendar/booking, REST API), [JetFormBuilder](https://jetformbuilder.com/)
+(forms, hooks, custom actions, fields, payment gateways), [JetSmartFilters](https://jetsmartfilters.com/) (filter →
+query internals), [JetSearch](https://crocoblock.com/plugins/jetsearch/) (AJAX search pipeline, suggestions,
+widgets/extensibility), [Jet Appointments Booking](https://crocoblock.com/plugins/jetappointment/) and
 [JetBooking](https://crocoblock.com/plugins/jetbooking/) (two separate booking plugins, easy to conflate),
 [JetElements](https://crocoblock.com/plugins/jetelements/) and [JetMenu](https://crocoblock.com/plugins/jetmenu/)
 (Elementor widgets/mega-menu), [JetReviews](https://crocoblock.com/plugins/jetreviews/),
@@ -94,6 +95,20 @@ right domain skill below.
 - [`jetsmartfilters-query`](skills/jetsmartfilters-query/SKILL.md) — how JetSmartFilters turns a filter
   selection into a tax_query/meta_query, the AJAX filtering endpoint, registering custom filter types/providers, and
   worked `final-query` examples including a cross-plugin hook into JetEngine's Query Builder.
+
+### JetSearch
+
+- [`jetsearch-query-pipeline`](skills/jetsearch-query-pipeline/SKILL.md) — the `jet_ajax_search` AJAX action and its
+  nonce scheme, how request data maps onto `WP_Query` args, taxonomy-scoped search, the Search Sources extensibility
+  system (registering a custom source alongside the built-in Terms/Users), the parallel (unauthenticated) REST
+  search route, and the `%jet_search_current_results%` JetEngine macro integration.
+- [`jetsearch-suggestions`](skills/jetsearch-suggestions/SKILL.md) — the Search Suggestions (autocomplete) feature's
+  two custom DB tables, its REST CRUD surface versus the near-duplicate AJAX handlers that actually power the admin
+  UI, and the separate "form suggestions" auto-log mechanism — plus two real plugin bugs found along the way (see
+  [`docs/known-gaps.md`](docs/known-gaps.md)).
+- [`jetsearch-widgets-extensibility`](skills/jetsearch-widgets-extensibility/SKILL.md) — registering the Ajax Search
+  and Search Suggestions widgets/blocks/elements across Elementor, Gutenberg, and Bricks, plus the real extensibility
+  filter catalog.
 
 ### Jet Appointments Booking
 
@@ -203,10 +218,9 @@ returns structured pass/fail JSON over REST, so a future agent can re-verify eve
 reinventing probe code. See [`docs/test-harness-guide.md`](docs/test-harness-guide.md) and
 [`test-harness/core-snippet.php`](test-harness/core-snippet.php) for the shared infrastructure this depends on.
 
-Working on a *different* Crocoblock plugin (JetSearch is the only one left without a skill here)?
-[`other-plugins-backlog/OTHER-PLUGINS.md`](other-plugins-backlog/OTHER-PLUGINS.md)
-has gist-sourced hook/class leads for it, gathered as a byproduct of auditing this repo's own fifteen plugins —
-not a skill itself, just a head start for whoever builds it out.
+Working on a *different* Crocoblock plugin this repo doesn't cover yet?
+[`other-plugins-backlog/OTHER-PLUGINS.md`](other-plugins-backlog/OTHER-PLUGINS.md) has the process this repo follows
+for picking up a new one — not a skill itself, just a head start for whoever builds it out.
 
 ## Sources
 

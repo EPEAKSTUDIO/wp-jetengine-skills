@@ -4,13 +4,21 @@ A short, curated list of what's still open in this repo. Not blocking, not urgen
 just honest bookkeeping so contributors know where to look first. See each skill's own
 `TEST-REGIMEN.md` for the fine-grained "not yet automated" notes behind these.
 
-## The one plugin with zero coverage
+## Real plugin bugs found, not fixed upstream
 
-- **JetSearch** — active on the sandbox this repo was verified against, but its source
-  was never checked out locally, so no skill exists yet. Three unverified gist leads are
-  logged in [`other-plugins-backlog/OTHER-PLUGINS.md`](../other-plugins-backlog/OTHER-PLUGINS.md)
-  as a starting point — they still need verifying against real source, per this repo's
-  core principle (see [`principles.md`](principles.md)).
+These are genuine JetSearch defects (not documentation gaps) discovered while building
+`jetsearch-suggestions` — reported here so they don't get lost, and so a user hitting
+the symptom finds an explanation instead of re-debugging from scratch. See
+[`../skills/jetsearch-suggestions/SKILL.md`](../skills/jetsearch-suggestions/SKILL.md)
+for full detail.
+
+- `wp_ajax_suggestions_get_user_id` / `wp_ajax_nopriv_suggestions_get_user_id` are wired
+  to a method that doesn't exist on `Jet_Search_Ajax_Handlers` — triggering this AJAX
+  action fatals with "call to undefined method."
+- `remove_deleted_parent()` (both the REST `delete-suggestion` endpoint and its AJAX
+  twin) compares a DB-fetched `parent` value (string) against a deleted id (int) with
+  strict `===`, which is always false — deleting a parent suggestion never actually
+  clears its children's `parent` field, silently leaving them orphaned.
 
 ## Things that need a real browser/editor session, not a PHP test
 
@@ -28,6 +36,12 @@ can't safely exercise these — each is flagged in its owning skill's `TEST-REGI
   third-party credentials).
 - Real submitted-review fixtures for two JetReviews conditions (duplicate-submission
   blocking, a custom non-`Base_Condition` class).
+- JetSearch's Bricks Builder integration (element registration, controls-DSL, hooks) —
+  source-verified only, Bricks isn't installed on the sandbox this repo verifies
+  against. A full `wp_ajax_jet_ajax_search`/REST `search-posts` request through its real
+  terminating callback (both end in `wp_send_json_success()`/`wp_die()`, uncatchable by
+  this repo's in-process test harness) — the underlying data-building methods are
+  covered instead, same pattern used for `jetwoobuilder-templates`' AJAX handlers.
 
 ## Smaller open threads
 

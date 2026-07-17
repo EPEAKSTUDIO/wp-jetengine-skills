@@ -387,9 +387,28 @@ Both gotchas apply to every snippet POST/PUT in this round's deploys (ids 35-39)
   TEST-REGIMEN.md.
 - id 78 — "ZZZ-DIAG jetsearch discover" — one-off diagnostic confirming JetSearch's
   real installed folder name (`jet-search`, plugin file `jet-search/jet-search.php`,
-  v3.6.1.3) via `get_plugins()`/`glob(WP_PLUGIN_DIR)`, ahead of a (currently blocked,
-  see `HANDOFF.md`) attempt to check out its source through the sandbox. Deactivated
-  after use; harmless read-only info if ever re-activated.
+  v3.6.1.3) via `get_plugins()`/`glob(WP_PLUGIN_DIR)`, ahead of a (blocked, source added
+  manually instead — see `HANDOFF.md`) attempt to check out its source through the
+  sandbox. Deactivated after use; harmless read-only info if ever re-activated.
+- id 79 — "AGENT-TEST-SUITE: jetsearch-query-pipeline" — Source of truth:
+  `skills/jetsearch-query-pipeline/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetsearch-query-pipeline`. 10/10 pass as of 2026-07-17, one
+  test-only bug fixed (JetEngine's macro registry needed a forced `->init()` call — the
+  same lazy-init-behind-a-flag shape as this repo's other lazy-load gotchas).
+- id 80 — "AGENT-TEST-SUITE: jetsearch-widgets-extensibility" — Source of truth:
+  `skills/jetsearch-widgets-extensibility/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetsearch-widgets-extensibility`. 13/13 pass as of
+  2026-07-17 (Elementor/Gutenberg/macro paths live-verified; Bricks source-verified
+  only, not installed on this sandbox), 3 test-only bugs fixed.
+- id 81 — "AGENT-TEST-SUITE: jetsearch-suggestions" — Source of truth:
+  `skills/jetsearch-suggestions/tests.php`. Active; run via
+  `GET /agent-test/v1/suite/jetsearch-suggestions`. 10/10 pass as of 2026-07-17.
+  **2 real plugin bugs found and documented** (not fixed in the plugin — see
+  `skills/jetsearch-suggestions/SKILL.md`): `wp_ajax_suggestions_get_user_id`/
+  `_nopriv_` are wired to a method that doesn't exist (fatals if triggered), and
+  `remove_deleted_parent()`'s strict `===` comparison of a string DB value against an
+  int id means deleting a parent suggestion never actually clears its children's
+  `parent` field.
 
 ## Open question / recommendation
 

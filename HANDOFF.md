@@ -274,6 +274,56 @@ still-open threads (JetEngine's possible meta-field read/write helper, Dynamic F
 vs. `%macro%`) plus two newly-surfaced ones (JetFormBuilder's separate macro-filter
 system, JetEngine Profile Builder) into that file.
 
+## 2026-07-17/18, eighth round: repo restructure + JetSearch, the last plugin
+
+Two unrelated pieces of work, same session.
+
+**Restructure**: moved every skill out of `.claude/skills/` into a plain top-level
+`skills/` folder, matching [WordPress/agent-skills](https://github.com/WordPress/agent-skills)'s
+convention — this repo's skills are spec-compliant and were never actually Claude-specific,
+so nesting them under Claude Code's proprietary discovery path was misleading. Also moved
+`other-plugins-backlog/` out from under `.claude/skills/_other-plugins-backlog/` to a plain
+top-level folder (it was never a skill). `README.md`'s install section now explains copying
+from `skills/` into whichever tool-specific directory the reader's assistant expects
+(`.claude/skills/`, `.cursor/skills/`, etc.) — this repo itself no longer self-hosts
+working Claude Code skills; it's a source repo now, same as the WordPress one.
+
+**JetSearch**: the one plugin this repo never had source for. First attempt was to pull
+its source directly off the sandbox (it's active there) via a temporary REST route that
+read plugin files over HTTP — that got blocked by the environment's permission classifier,
+reasonably, since it's an arbitrary-file-read endpoint even gated behind the same admin
+auth as everything else here. Asked the user instead; they added real source to
+`plugins/jet-search/` (v3.6.1.3) directly, same as every other plugin in this repo.
+
+Split into 3 skills by capability (source: `plugins/jet-search/`, all three deployed
+2026-07-17, snippet ids 79-81, 33/33 assertions passing):
+- `jetsearch-query-pipeline` (10/10) — the `jet_ajax_search` AJAX action/nonce scheme,
+  `$_GET['data']` → `WP_Query` args mapping, two distinct taxonomy-scoping mechanisms
+  (a real `tax_query` path and a separate raw-SQL term-name path), the Search Sources
+  extensibility system, a parallel REST search route confirmed to have **no nonce check**
+  unlike its AJAX twin, and the `%jet_search_current_results%` JetEngine macro. One
+  test-only bug (JetEngine's macro registry needed a forced `->init()` — the same
+  lazy-init-behind-a-flag shape as the Data Stores/Relations gotchas from the seventh
+  round, just via `do_action()` + a flag instead of a lazy `require`).
+- `jetsearch-suggestions` (10/10) — the two custom DB tables backing Search Suggestions,
+  its REST CRUD surface versus the near-duplicate AJAX handlers that the shipped admin UI
+  *actually* calls (confirmed by grepping the compiled admin JS bundle), and the separate
+  "form suggestions" auto-log/weight-increment mechanism (not a JetFormBuilder feature
+  despite the name). **Found two real, undocumented plugin bugs** (not test bugs, left
+  unfixed in the plugin, documented in `docs/known-gaps.md`): a `wp_ajax_suggestions_get_user_id`
+  handler wired to a method that doesn't exist (fatals if triggered), and
+  `remove_deleted_parent()`'s strict `===` comparing a string DB value to an int id,
+  meaning deleting a parent suggestion never clears its children's `parent` field.
+- `jetsearch-widgets-extensibility` (13/13) — Ajax Search/Search Suggestions widget
+  registration across Elementor, Gutenberg, and Bricks (Bricks source-verified only,
+  not installed on this sandbox), plus the real extensibility filter catalog. Three
+  test-only bugs, all mechanical (wrong Elementor API method name, the same macro-init
+  gotcha as above, a wrong namespace assumption).
+
+This closes out `other-plugins-backlog/OTHER-PLUGINS.md` — every plugin it ever tracked
+now has a full skill set. That file is kept only as a process template for the next new
+Crocoblock plugin, not because it tracks anything open.
+
 ## Current sandbox state (jackfruit.epeak.studio)
 
 - Not production — the site owner confirmed it's fine to create/test freely here, as
@@ -287,24 +337,24 @@ system, JetEngine Profile Builder) into that file.
   self-service refresh flow documented here.
 - Code Snippets ids currently deployed and their purpose are fully inventoried in
   `docs/code-snippets-rest-api.md` — **id 22 is the shared harness core; never
-  deactivate it**, everything else (ids 23, 24, 27-45, 52-63, 75-77 as of this writing)
-  are per-skill suites that depend on it. Id 25 is a deactivated crash-reproduction
-  diagnostic — documented on purpose, do not activate it or hit its route. A number of
-  ids in the 46-74 range were one-off `ZZZ-DIAG` isolation probes used during earlier
-  rounds' triage, all deactivated after use (see `docs/code-snippets-rest-api.md`).
+  deactivate it**, everything else (ids 23, 24, 27-45, 52-63, 75-77, 79-81 as of this
+  writing) are per-skill suites that depend on it. Id 25 is a deactivated
+  crash-reproduction diagnostic — documented on purpose, do not activate it or hit its
+  route. A number of ids in the 46-74/78 range were one-off `ZZZ-DIAG` isolation probes
+  used during earlier rounds' triage, all deactivated after use (see
+  `docs/code-snippets-rest-api.md`).
 - **All five optional JetEngine modules this repo's skills document are now active**
   (as of the seventh round): Dynamic Visibility, Data Stores, Calendar, Forms (Legacy),
   and Rest API Listings — activated via `tool-manage-modules` so `jetengine-modules`,
   `jetengine-booking-forms`, and `jetengine-rest-api` all exercise real behavior instead
   of module-gating-only checks.
-- **Every plugin this repo covers is now active on the sandbox** (as of the fifth
-  round): JetEngine, JetFormBuilder, JetSmartFilters, Jet Appointments Booking,
+- **Every Crocoblock plugin this repo covers is now active on the sandbox AND has real
+  source checked out** (as of the eighth round, JetSearch was the last holdout):
+  JetEngine, JetFormBuilder, JetSmartFilters, JetSearch, Jet Appointments Booking,
   JetBooking, JetElements, JetMenu, JetReviews, JetWooBuilder, JetBlog,
   JetCompareWishlist, JetPopup, JetTabs, JetThemeCore — plus Elementor/Elementor Pro (a
-  hard dependency for the Elementor-based plugins), WooCommerce (newly installed this
-  round, unblocking several WC-dependent test paths), JetBlocks (activated but out of
-  scope for this repo — no skill covers it), and JetSearch (active, but no local source
-  checked out — see `OTHER-PLUGINS.md`).
+  hard dependency for the Elementor-based plugins) and WooCommerce. JetBlocks is active
+  but deliberately out of scope for this repo — no skill covers it.
 
 ## What's done vs. still open
 
