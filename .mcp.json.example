@@ -1,9 +1,10 @@
 {
   "mcpServers": {
     "jetengine": {
+      "type": "http",
       "url": "https://yourWordpressAddressHere/wp-json/jet-engine/v1/mcp/",
       "headers": {
-        "Authorization": "Basic ${JETENGINE_BASIC_AUTH}"
+        "Authorization": "Basic PASTE_YOUR_BASE64_TOKEN_HERE"
       }
     }
   }

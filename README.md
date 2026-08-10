@@ -279,52 +279,39 @@ improvement here — not set up yet.)
 
 ## Connecting to a live JetEngine site via MCP
 
-JetEngine ships a built-in MCP server at `wp-json/jet-engine/v1/mcp/` (requires JetEngine ≥ the version that
-introduced the Features API; enable it at **wp-admin → JetEngine → MCP Server**). When you connect this repo to
-a live site, your agent can call `tool-add-cct`, `tool-add-query`, `resource-get-configuration`, etc. directly
-instead of constructing raw REST calls. See [`skills/jetengine-mcp-tools/SKILL.md`](skills/jetengine-mcp-tools/SKILL.md)
-for full documentation of every tool and its verified behavior.
+JetEngine ships a built-in MCP server at `wp-json/jet-engine/v1/mcp/`, added in **JetEngine 3.8.0** alongside the
+Command Center. Both gating options (`enable_features_api` and `enable_mcp_server`) default to `true`, so on a
+current install there's usually nothing to switch on. Connect this repo to a live site and your agent can call
+`tool-add-cct`, `tool-add-query`, `resource-get-configuration`, etc. directly instead of constructing raw REST
+calls. See [`skills/jetengine-mcp-tools/SKILL.md`](skills/jetengine-mcp-tools/SKILL.md) for full documentation of
+every tool and its verified behavior.
+
+This is entirely optional — writing, reviewing, and reading skills needs no live site.
 
 ### Setup
 
-All credentials live in a local `.env` file that is gitignored — nothing sensitive is
-ever committed or stored in your shell profile.
+1. **Get a credential.** Either an [Application Password](https://wordpress.org/documentation/article/application-passwords/)
+   (`wp-admin → Users → Profile → Application Passwords → Add New`), base64-encoded as
+   `username:password` — or a JWT bearer token, if your site already issues them via AAM or a
+   similar plugin. JetEngine doesn't parse the header itself; it just checks
+   `current_user_can( 'manage_options' )` against whichever user WordPress resolved, so both work.
+   Either way the account must be an **Administrator** — there is no reduced-privilege mode.
 
-1. **Create an Application Password** on your WordPress site:
-   `wp-admin → Users → Profile → Application Passwords → Add New`
-   Name it "Claude Code" (or similar) and copy the generated password
-   (format: `xxxx xxxx xxxx xxxx xxxx xxxx`).
-
-2. **Copy `.env.example` to `.env`** and fill in your values:
+2. **Copy the template and fill it in:**
    ```bash
-   cp .env.example .env
-   # Edit .env — set WP_SITE_URL, WP_USERNAME, WP_APP_PASSWORD
+   cp .mcp.json.example .mcp.json
+   # Set the site URL and the Authorization value: "Basic <base64>" or "Bearer <jwt>"
    ```
 
-3. **Compute and store the auth token** (run once to populate `JETENGINE_BASIC_AUTH`):
-   ```bash
-   set -a; source .env; set +a
-   echo "JETENGINE_BASIC_AUTH=$(echo -n "${WP_USERNAME}:${WP_APP_PASSWORD}" | base64)" >> .env
-   ```
+3. **Open `/mcp` in Claude Code** (or restart) and approve the `jetengine` server.
 
-4. **Generate `.mcp.json`** from your `.env`:
-   ```bash
-   set -a; source .env; set +a
-   sed "s|yourWordpressAddressHere|${WP_SITE_URL}|" .mcp.json.example > .mcp.json
-   # Then open .mcp.json and replace ${JETENGINE_BASIC_AUTH} with the actual token value
-   ```
+`.mcp.json` is gitignored, so the token stays local. Prefer to keep it out of the file entirely?
+Claude Code expands `${VAR}` in `.mcp.json` headers — but from the environment of the `claude`
+process, so the variable has to be exported before launch.
 
-   Or let your agent handle steps 3–4 automatically: when `CLAUDE.md` is present, Claude
-   Code will detect the missing `.env` / `.mcp.json` and walk you through setup.
-
-5. **Reload MCP servers** — open `/mcp` in Claude Code or restart. The `jetengine` server
-   should appear as connected.
-
-The connecting user must have the `manage_options` WordPress capability (Administrator
-role) — all JetEngine MCP tools require it with no reduced-privilege mode available.
-
-> **`.env` and `.mcp.json` are both gitignored** — credentials stay local. Committed
-> templates (`.env.example`, `.mcp.json.example`) show the structure without real values.
+**[`docs/mcp-setup.md`](docs/mcp-setup.md) has the full walkthrough**, including how to verify the
+connection with `curl`, the JWT expiry and `manage_options` caveats, and the fix for hosts that
+strip the `Authorization` header (the most common cause of a 401 with correct credentials).
 
 ## Contributing
 

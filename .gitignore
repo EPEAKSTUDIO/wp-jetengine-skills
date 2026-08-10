@@ -1,5 +1,5 @@
 .mcp.json
-.env
-.env.local
 .claude/settings.local.json
+.env
+.env.*
 plugins/

@@ -4,7 +4,7 @@ description: Use when a JetEngine site exposes MCP tools (tool-add-cct, tool-add
 license: MIT
 metadata:
   author: project
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # JetEngine MCP Tools
@@ -46,6 +46,21 @@ really do, so you can decide whether to call them or write raw PHP against
 - **Permission default is `current_user_can( 'manage_options' )`** (`Feature::check_permissions()`)
   unless a tool supplies its own `permission_callback` — none of the core tools do. Every
   tool here requires an admin-capable user token; there is no reduced-privilege mode.
+- **Authentication is whatever WordPress says it is.** JetEngine never reads the
+  `Authorization` header itself — it calls `current_user_can()` against the user WordPress
+  already resolved through the `determine_current_user` filter. So Basic auth via core
+  Application Passwords and `Bearer <jwt>` from a JWT plugin (AAM, JWT Authentication for
+  WP REST API, miniOrange) are equally valid; JetEngine can't tell them apart. Bearer/JWT
+  against `jet-engine/v1/mcp/` confirmed working in production by the repo maintainer
+  (2026-08-10); Basic is what Crocoblock's own VS Code docs show. Two consequences worth
+  knowing: JWTs expire, so a token pasted into a client config starts 401ing later with no
+  visible cause, and the `manage_options` requirement above still bites — a per-user JWT
+  scoped to a limited role authenticates cleanly and then 403s on every tool.
+- **A 401 with credentials you know are correct is usually the host, not the token.** Many
+  Apache/CGI and nginx+PHP-FPM stacks strip `Authorization` before PHP sees it, which
+  breaks Basic and Bearer identically. `SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1`
+  (Apache) or `fastcgi_param HTTP_AUTHORIZATION $http_authorization;` (nginx) is the fix.
+  See `docs/mcp-setup.md`.
 - Core tools are hardcoded in `Registry::load_core_features()`: `add-cct`,
   `get-configuration`, `get-website-config`, `get-macros`, `add-glossary`,
   `manage-modules`. The **rest** (`add-cpt`, `add-taxonomy`, `add-meta-box`, `add-query`,
@@ -234,3 +249,12 @@ column types and the `query_args` → stored-args conversion documented above. S
 `TEST-REGIMEN.md` for the full executed run and remaining untested tools
 (`add-cpt`, `add-taxonomy`, `add-meta-box`, `add-listing`, `add-glossary` were verified
 by source only, not exercised live in this pass).
+
+**Authentication addendum (2026-08-10, v0.3.0):** the `determine_current_user` claim is
+read off `Feature::check_permissions()` calling `current_user_can()` with no header
+parsing of its own — i.e. structural, not from a dedicated test. `Bearer <jwt>` against
+`jet-engine/v1/mcp/` is reported working in production by the repo maintainer rather than
+exercised by `tests.php`; it has **not** been added to the suite. The stripped-`Authorization`
+failure mode is general WordPress REST behavior, not JetEngine-specific, and is documented
+here because it presents as a JetEngine auth bug. A `mcp-5` case covering a Bearer-token
+`initialize` handshake would close this out.
