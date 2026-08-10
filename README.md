@@ -277,6 +277,42 @@ We're not sure this is the best way to distribute/share skills yet — suggestio
 installer, the way [WordPress/agent-skills](https://github.com/WordPress/agent-skills) does it, would be a natural
 improvement here — not set up yet.)
 
+## Connecting to a live JetEngine site via MCP
+
+JetEngine ships a built-in MCP server at `wp-json/jet-engine/v1/mcp/`, added in **JetEngine 3.8.0** alongside the
+Command Center. Both gating options (`enable_features_api` and `enable_mcp_server`) default to `true`, so on a
+current install there's usually nothing to switch on. Connect this repo to a live site and your agent can call
+`tool-add-cct`, `tool-add-query`, `resource-get-configuration`, etc. directly instead of constructing raw REST
+calls. See [`skills/jetengine-mcp-tools/SKILL.md`](skills/jetengine-mcp-tools/SKILL.md) for full documentation of
+every tool and its verified behavior.
+
+This is entirely optional — writing, reviewing, and reading skills needs no live site.
+
+### Setup
+
+1. **Get a credential.** Either an [Application Password](https://wordpress.org/documentation/article/application-passwords/)
+   (`wp-admin → Users → Profile → Application Passwords → Add New`), base64-encoded as
+   `username:password` — or a JWT bearer token, if your site already issues them via AAM or a
+   similar plugin. JetEngine doesn't parse the header itself; it just checks
+   `current_user_can( 'manage_options' )` against whichever user WordPress resolved, so both work.
+   Either way the account must be an **Administrator** — there is no reduced-privilege mode.
+
+2. **Copy the template and fill it in:**
+   ```bash
+   cp .mcp.json.example .mcp.json
+   # Set the site URL and the Authorization value: "Basic <base64>" or "Bearer <jwt>"
+   ```
+
+3. **Open `/mcp` in Claude Code** (or restart) and approve the `jetengine` server.
+
+`.mcp.json` is gitignored, so the token stays local. Prefer to keep it out of the file entirely?
+Claude Code expands `${VAR}` in `.mcp.json` headers — but from the environment of the `claude`
+process, so the variable has to be exported before launch.
+
+**[`docs/mcp-setup.md`](docs/mcp-setup.md) has the full walkthrough**, including how to verify the
+connection with `curl`, the JWT expiry and `manage_options` caveats, and the fix for hosts that
+strip the `Authorization` header (the most common cause of a 401 with correct credentials).
+
 ## Contributing
 
 Got a JetEngine trick, hook, or gotcha that took you a while to figure out? Turn it into a `SKILL.md` (see an
