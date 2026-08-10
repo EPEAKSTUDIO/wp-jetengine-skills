@@ -12,7 +12,9 @@ without a live site.
 
 ## Before you start
 
-- **JetEngine 3.8.0 or newer.**
+- **JetEngine 3.8.0 or newer.** (3.8.0 is where Crocoblock's release announcements put
+  the MCP server and Command Center; the plugin's own `changelog.txt` isn't
+  web-readable, so that's the sourcing. Verified working on 3.8.13.)
 - **The server is on by default.** Two independent options gate it, and both default to
   `true`: `jet-engine-misc-settings['enable_features_api']` (the whole Features API
   layer) and `enable_mcp_server` (the MCP protocol endpoint specifically). If every tool
@@ -53,8 +55,10 @@ Your header value is `Basic <that string>`.
 
 If your site already issues per-user JWTs — via [AAM](https://wordpress.org/plugins/advanced-access-manager/),
 [JWT Authentication for WP REST API](https://wordpress.org/plugins/jwt-authentication-for-wp-rest-api/),
-miniOrange, or similar — that works too. Those plugins hook `determine_current_user` for
-`Authorization: Bearer <jwt>`, which is the same door Application Passwords come through.
+miniOrange, or similar — that works too, verified end to end against a JetEngine 3.8.13
+site on 2026-08-10 (`initialize`, `tools/list`, and a real `tools/call`). Those plugins
+hook `determine_current_user` for `Authorization: Bearer <jwt>`, which is the same door
+Application Passwords come through — JetEngine can't tell the two apart.
 
 Your header value is `Bearer <the jwt>`.
 
@@ -104,14 +108,29 @@ Swap `Basic …` for `Bearer …` if you went with Option B — nothing else cha
 curl -s -o /tmp/mcp-probe.json -w '%{http_code}\n' -X POST \
   -H "Authorization: Basic PASTE_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-code","version":"1.0"}}}' \
   "https://your-site.example.com/wp-json/jet-engine/v1/mcp/"
 ```
 
-`200` plus a `serverInfo` block in `/tmp/mcp-probe.json` means you're connected. `curl -s`
-alone prints only the body, so without `-w` you cannot actually see the status code — the
-distinction matters, because a 401 body can be short enough to skim past.
+Swap `Basic PASTE_TOKEN` for `Bearer <jwt>` to check a JWT — verified working
+(2026-08-10, JetEngine 3.8.13).
+
+A `200` and this body mean you're connected:
+
+```json
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26",
+ "capabilities":{"tools":{"listChanged":false}},
+ "serverInfo":{"name":"Crocoblock Client MCP Server","version":"1.0.0"}}}
+```
+
+The server answers `2025-03-26` whatever `protocolVersion` you send, so don't read that
+back as an echo of your request. It also replies plain JSON and does **not** require an
+`Accept: application/json, text/event-stream` header, even though the streamable-HTTP
+transport normally implies one — a missing `Accept` is not your problem if this fails.
+
+`curl -s` alone prints only the body, so without `-w` you cannot see the status code — the
+distinction matters because the failure body is short enough to skim past:
+`{"code":"rest_forbidden","message":"You cannot access this resource."}` with a **401**.
 
 ## Step 4 — enable the server in Claude Code
 

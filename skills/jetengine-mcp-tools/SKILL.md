@@ -37,6 +37,17 @@ really do, so you can decide whether to call them or write raw PHP against
   visible tool name is always `{type}-{id}`** — e.g. id `add-cct` + type `tool` →
   `tool-add-cct`. This is the *only* naming convention that's actually correct (see
   gotcha below about the `next_tool` field lying about this).
+- **The `resource-*` features are MCP *tools*, not MCP resources.** `resources/list`
+  returns `-32601 Method not found` — the server doesn't implement the resources
+  capability at all. `tools/list` returns all 11 features including
+  `resource-get-configuration`, `resource-get-website-config` and `resource-get-macros`,
+  and you invoke them through `tools/call` like any other. The `{type}-{id}` naming rule
+  above holds; `type` just isn't `tool` for those three. `initialize` advertises exactly
+  `"capabilities":{"tools":{"listChanged":false}}` and identifies as
+  `"serverInfo":{"name":"Crocoblock Client MCP Server","version":"1.0.0"}`. It answers
+  `"protocolVersion":"2025-03-26"` regardless of the version the client offers (verified
+  by sending `2024-11-05` and getting `2025-03-26` back). All live-verified 2026-08-10 on
+  JetEngine 3.8.13.
 - Two REST surfaces exist side by side: `jet-engine/v1/mcp-tools/run/{name}` (a plain
   nonce-gated REST route, `Run_Controller`, requires header `X-WP-Nonce`) and
   `jet-engine/v1/mcp/` (the real streamable-HTTP MCP protocol endpoint,
@@ -50,12 +61,17 @@ really do, so you can decide whether to call them or write raw PHP against
   `Authorization` header itself — it calls `current_user_can()` against the user WordPress
   already resolved through the `determine_current_user` filter. So Basic auth via core
   Application Passwords and `Bearer <jwt>` from a JWT plugin (AAM, JWT Authentication for
-  WP REST API, miniOrange) are equally valid; JetEngine can't tell them apart. Bearer/JWT
-  against `jet-engine/v1/mcp/` confirmed working in production by the repo maintainer
-  (2026-08-10); Basic is what Crocoblock's own VS Code docs show. Two consequences worth
-  knowing: JWTs expire, so a token pasted into a client config starts 401ing later with no
-  visible cause, and the `manage_options` requirement above still bites — a per-user JWT
-  scoped to a limited role authenticates cleanly and then 403s on every tool.
+  WP REST API, miniOrange) are equally valid; JetEngine can't tell them apart. **Bearer/JWT
+  live-verified 2026-08-10** against `jackfruit.epeak.studio` — `initialize`, `tools/list`,
+  and a real `tools/call` (`resource-get-website-config`, which actually runs
+  `check_permissions()`) all returned 200, and the same JWT authenticated core's
+  `wp/v2/plugins` too, confirming it's ordinary WordPress user resolution and not an
+  MCP-specific path. Basic is what Crocoblock's own VS Code docs show. Two consequences
+  worth knowing: JWTs expire, so a token pasted into a client config starts 401ing later
+  with no visible cause, and the `manage_options` requirement above still bites — a
+  per-user JWT scoped to a limited role authenticates cleanly and then 403s on every tool.
+  With no `Authorization` header at all the endpoint returns **401 `rest_forbidden`**
+  ("You cannot access this resource."), not 403.
 - **A 401 with credentials you know are correct is usually the host, not the token.** Many
   Apache/CGI and nginx+PHP-FPM stacks strip `Authorization` before PHP sees it, which
   breaks Basic and Bearer identically. `SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1`
@@ -250,11 +266,15 @@ column types and the `query_args` → stored-args conversion documented above. S
 (`add-cpt`, `add-taxonomy`, `add-meta-box`, `add-listing`, `add-glossary` were verified
 by source only, not exercised live in this pass).
 
-**Authentication addendum (2026-08-10, v0.3.0):** the `determine_current_user` claim is
-read off `Feature::check_permissions()` calling `current_user_can()` with no header
-parsing of its own — i.e. structural, not from a dedicated test. `Bearer <jwt>` against
-`jet-engine/v1/mcp/` is reported working in production by the repo maintainer rather than
-exercised by `tests.php`; it has **not** been added to the suite. The stripped-`Authorization`
-failure mode is general WordPress REST behavior, not JetEngine-specific, and is documented
-here because it presents as a JetEngine auth bug. A `mcp-5` case covering a Bearer-token
-`initialize` handshake would close this out.
+**Authentication addendum (2026-08-10, v0.3.0):** live-verified over the wire against
+`jackfruit.epeak.studio` (JetEngine 3.8.13) with an AAM-issued JWT — see the
+`2026-08-10` run log in `TEST-REGIMEN.md` for the exact requests and responses. This was
+run by hand with `curl`, **not** added to `tests.php`: the suite runs *inside* WordPress
+via the Code Snippets harness, so it can't observe its own transport-layer auth. A
+`mcp-5` case there would be tautological; the regimen entry is the artifact instead.
+
+Two claims here remain source-derived rather than executed: that a JWT scoped below
+`manage_options` gets a 403 (inferred from `Feature::check_permissions()`; not tested,
+as it needs a second limited-role token), and that hosts stripping `Authorization` cause
+the same failure for Basic and Bearer (general WordPress REST behavior, documented here
+only because it presents as a JetEngine auth bug).

@@ -5,6 +5,48 @@ Validates claims in `SKILL.md`. Run against the sandbox site
 `docs/code-snippets-rest-api.md` for the snippet-plugin gotchas, especially that
 `DELETE` doesn't reliably work: deactivate probes instead of trying to delete them).
 
+## Run log — 2026-08-10: JWT bearer auth verified live (manual, not in `tests.php`)
+
+Run by hand with `curl` against `https://jackfruit.epeak.studio/wp-json/jet-engine/v1/mcp/`
+on **JetEngine 3.8.13**, using a short-lived AAM-issued JWT for user_id 1. Not folded into
+`tests.php` on purpose: the suite executes inside WordPress via the Code Snippets harness,
+by which point authentication has already happened — it cannot observe its own transport
+auth, so a test there would prove nothing.
+
+- **`initialize` with `Authorization: Bearer <jwt>`** → HTTP 200,
+  `application/json; charset=UTF-8`. Response:
+  `{"protocolVersion":"2025-03-26","capabilities":{"tools":{"listChanged":false}},`
+  `"serverInfo":{"name":"Crocoblock Client MCP Server","version":"1.0.0"}}`.
+  Note the client sent `protocolVersion: 2024-11-05` and the server answered `2025-03-26`
+  anyway. **PASS.**
+- **Same request with no `Accept` header** → identical 200 and identical body. The
+  `Accept: application/json, text/event-stream` header that the streamable-HTTP transport
+  normally expects is **not** required by this endpoint; it always replies plain JSON.
+  Worth knowing before blaming a missing header for a failed handshake. **PASS.**
+- **Same request with no `Authorization` header** (control) → HTTP **401**
+  `{"code":"rest_forbidden","message":"You cannot access this resource."}`. Confirms the
+  200s above are attributable to the token. **PASS.**
+- **`tools/list`** → 11 tools: `tool-add-cct`, `tool-add-cpt`, `tool-add-taxonomy`,
+  `tool-add-meta-box`, `tool-add-query`, `tool-add-listing`, `tool-add-glossary`,
+  `tool-manage-modules`, `resource-get-configuration`, `resource-get-website-config`,
+  `resource-get-macros`. **PASS**, and confirms the `{type}-{id}` rule (mcp-1) over the
+  wire rather than just against the `Registry` object.
+- **`resources/list`** → `-32601 Method not found`. The three `resource-*` features are
+  exposed as MCP *tools*; the server implements no resources capability. **New fact**,
+  added to `SKILL.md`.
+- **`tools/call` → `resource-get-website-config`** → HTTP 200 with a real post-types
+  payload. This is the one that matters for the auth claim: it actually executes
+  `Feature::check_permissions()` → `current_user_can( 'manage_options' )`, so a Bearer
+  token demonstrably satisfies the capability check, not just the route. **PASS.**
+- **Cross-check:** the same JWT authenticated core's `GET /wp-json/wp/v2/plugins`
+  (returned the full plugin list, JetEngine 3.8.13). Confirms this is ordinary WordPress
+  `determine_current_user` resolution and not an MCP-specific auth path. **PASS.**
+
+Read-only throughout — no `tool-add-*` called, no artifacts created.
+
+**Not covered:** a JWT scoped below `manage_options` returning 403 (needs a second
+limited-role token). Still source-derived only.
+
 ## Run log — 2026-07-16: runnable suite added, 4/4 pass
 
 Added `tests.php` (per `docs/test-harness-guide.md`), deployed as Code Snippets snippet
