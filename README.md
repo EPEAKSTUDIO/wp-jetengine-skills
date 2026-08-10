@@ -277,6 +277,55 @@ We're not sure this is the best way to distribute/share skills yet — suggestio
 installer, the way [WordPress/agent-skills](https://github.com/WordPress/agent-skills) does it, would be a natural
 improvement here — not set up yet.)
 
+## Connecting to a live JetEngine site via MCP
+
+JetEngine ships a built-in MCP server at `wp-json/jet-engine/v1/mcp/` (requires JetEngine ≥ the version that
+introduced the Features API; enable it at **wp-admin → JetEngine → MCP Server**). When you connect this repo to
+a live site, your agent can call `tool-add-cct`, `tool-add-query`, `resource-get-configuration`, etc. directly
+instead of constructing raw REST calls. See [`skills/jetengine-mcp-tools/SKILL.md`](skills/jetengine-mcp-tools/SKILL.md)
+for full documentation of every tool and its verified behavior.
+
+### Setup
+
+All credentials live in a local `.env` file that is gitignored — nothing sensitive is
+ever committed or stored in your shell profile.
+
+1. **Create an Application Password** on your WordPress site:
+   `wp-admin → Users → Profile → Application Passwords → Add New`
+   Name it "Claude Code" (or similar) and copy the generated password
+   (format: `xxxx xxxx xxxx xxxx xxxx xxxx`).
+
+2. **Copy `.env.example` to `.env`** and fill in your values:
+   ```bash
+   cp .env.example .env
+   # Edit .env — set WP_SITE_URL, WP_USERNAME, WP_APP_PASSWORD
+   ```
+
+3. **Compute and store the auth token** (run once to populate `JETENGINE_BASIC_AUTH`):
+   ```bash
+   set -a; source .env; set +a
+   echo "JETENGINE_BASIC_AUTH=$(echo -n "${WP_USERNAME}:${WP_APP_PASSWORD}" | base64)" >> .env
+   ```
+
+4. **Generate `.mcp.json`** from your `.env`:
+   ```bash
+   set -a; source .env; set +a
+   sed "s|yourWordpressAddressHere|${WP_SITE_URL}|" .mcp.json.example > .mcp.json
+   # Then open .mcp.json and replace ${JETENGINE_BASIC_AUTH} with the actual token value
+   ```
+
+   Or let your agent handle steps 3–4 automatically: when `CLAUDE.md` is present, Claude
+   Code will detect the missing `.env` / `.mcp.json` and walk you through setup.
+
+5. **Reload MCP servers** — open `/mcp` in Claude Code or restart. The `jetengine` server
+   should appear as connected.
+
+The connecting user must have the `manage_options` WordPress capability (Administrator
+role) — all JetEngine MCP tools require it with no reduced-privilege mode available.
+
+> **`.env` and `.mcp.json` are both gitignored** — credentials stay local. Committed
+> templates (`.env.example`, `.mcp.json.example`) show the structure without real values.
+
 ## Contributing
 
 Got a JetEngine trick, hook, or gotcha that took you a while to figure out? Turn it into a `SKILL.md` (see an
